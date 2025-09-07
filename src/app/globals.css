@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(20, 14.3%, 4.1%);
+  --muted: hsl(60, 4.8%, 95.9%);
+  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(20, 14.3%, 4.1%);
+  --border: hsl(20, 5.9%, 90%);
+  --input: hsl(20, 5.9%, 90%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(60, 4.8%, 95.9%);
+  --secondary-foreground: hsl(24, 9.8%, 10%);
+  --accent: hsl(60, 4.8%, 95.9%);
+  --accent-foreground: hsl(24, 9.8%, 10%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(60, 9.1%, 97.8%);
+  --ring: hsl(20, 14.3%, 4.1%);
+  --radius: 0.5rem;
+
+  /* Security-specific colors */
+  --security-blue: hsl(212, 70%, 56%);
+  --steel-blue: hsl(205, 81%, 44%);
+  --authorized-green: hsl(122, 39%, 33%);
+  --warning-orange: hsl(38, 100%, 48%);
+  --violation-red: hsl(357, 56%, 47%);
+}
+
+.dark {
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 3.7%, 15.9%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --popover: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 3.9%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(240, 3.7%, 15.9%);
+  --input: hsl(240, 3.7%, 15.9%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(240, 3.7%, 15.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(240, 3.7%, 15.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(240, 4.9%, 83.9%);
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .security-blue {
+    color: var(--security-blue);
+  }
+
+  .bg-security-blue {
+    background-color: var(--security-blue);
+  }
+
+  .text-authorized-green {
+    color: var(--authorized-green);
+  }
+
+  .bg-authorized-green {
+    background-color: var(--authorized-green);
+  }
+
+  .text-warning-orange {
+    color: var(--warning-orange);
+  }
+
+  .bg-warning-orange {
+    background-color: var(--warning-orange);
+  }
+
+  .text-violation-red {
+    color: var(--violation-red);
+  }
+
+  .bg-violation-red {
+    background-color: var(--violation-red);
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+/* Tab navigation styles */
+.tab-button {
+  @apply px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors;
+}
+
+.tab-button.active {
+  @apply border-b-2;
+  color: var(--security-blue);
+  border-color: var(--security-blue);
+}
+
+.personnel-filter-btn {
+  @apply px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors;
+}
+
+.personnel-filter-btn.active {
+  @apply text-white;
+  background-color: var(--security-blue);
+}
+
+/* Violation alert animation */
+.violation-alert {
+  animation: violation-pulse 2s ease-in-out infinite;
+}
+
+@keyframes violation-pulse {
+  0%,
+  100% {
+    background-color: var(--violation-red);
+  }
+  50% {
+    background-color: hsl(357, 56%, 57%);
+  }
+}
+
+/* Camera status indicators */
+.camera-status-online {
+  @apply bg-authorized-green text-white;
+  background-color: var(--authorized-green);
+}
+
+.camera-status-alert {
+  @apply bg-violation-red text-white animate-pulse;
+  background-color: var(--violation-red);
+}
+
+.camera-status-offline {
+  @apply bg-gray-500 text-white;
+}

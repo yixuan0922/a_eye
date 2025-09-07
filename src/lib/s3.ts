@@ -1,0 +1,130 @@
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+// Initialize S3 client
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION || "us-east-1",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
+
+const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME!;
+
+export class S3Service {
+  /**
+   * Upload a file to S3
+   */
+  static async uploadFile(
+    file: Buffer | Uint8Array,
+    key: string,
+    contentType: string
+  ): Promise<string> {
+    try {
+      console.log("S3 Upload attempt:", {
+        bucket: BUCKET_NAME,
+        key,
+        contentType,
+        region: process.env.AWS_REGION,
+        fileSize: file.length,
+      });
+
+      const command = new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+        Body: file,
+        ContentType: contentType,
+        // ACL: 'public-read', // Remove this line - bucket doesn't allow ACLs
+      });
+
+      const result = await s3Client.send(command);
+      console.log("S3 Upload successful:", result);
+
+      // Return the public URL
+      const url = `https://${BUCKET_NAME}.s3.${
+        process.env.AWS_REGION || "us-east-1"
+      }.amazonaws.com/${key}`;
+      console.log("Generated S3 URL:", url);
+      return url;
+    } catch (error) {
+      console.error("S3 Upload Error Details:", {
+        error: error,
+        message: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined,
+        bucket: BUCKET_NAME,
+        key,
+        region: process.env.AWS_REGION,
+      });
+      throw new Error(
+        `Failed to upload file to S3: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+
+  /**
+   * Delete a file from S3
+   */
+  static async deleteFile(key: string): Promise<void> {
+    try {
+      const command = new DeleteObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+      });
+
+      await s3Client.send(command);
+    } catch (error) {
+      console.error("Error deleting file from S3:", error);
+      throw new Error("Failed to delete file from S3");
+    }
+  }
+
+  /**
+   * Generate a presigned URL for temporary access
+   */
+  static async getPresignedUrl(
+    key: string,
+    expiresIn: number = 3600
+  ): Promise<string> {
+    try {
+      const command = new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+      });
+
+      return await getSignedUrl(s3Client, command, { expiresIn });
+    } catch (error) {
+      console.error("Error generating presigned URL:", error);
+      throw new Error("Failed to generate presigned URL");
+    }
+  }
+
+  /**
+   * Generate a unique file key for personnel photos
+   */
+  static generatePersonnelPhotoKey(
+    personnelId: string,
+    fileName: string
+  ): string {
+    const timestamp = Date.now();
+    const extension = fileName.split(".").pop() || "jpg";
+    return `personnel/${personnelId}/${timestamp}.${extension}`;
+  }
+
+  /**
+   * Extract key from S3 URL
+   */
+  static extractKeyFromUrl(url: string): string {
+    const urlParts = url.split("/");
+    return urlParts.slice(3).join("/"); // Remove https://bucket-name.s3.region.amazonaws.com/
+  }
+}
+
+export default S3Service;
+ 

@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Site {
+  id          String      @id @default(cuid())
+  name        String
+  location    String
+  code        String      @unique
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  qrCode      String?
+  cameras     Camera[]
+  personnel   Personnel[]
+  users       User[]
+  violations  Violation[]
+  attendance Attendance[]
+
+  @@map("sites")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("admin")
+  siteId    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  site      Site     @relation(fields: [siteId], references: [id])
+
+  @@map("users")
+}
+
+model Camera {
+  id         String      @id @default(cuid())
+  name       String
+  location   String
+  ipAddress  String?
+  status     String      @default("online")
+  streamUrl  String?
+  siteId     String
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  site       Site        @relation(fields: [siteId], references: [id])
+  violations Violation[]
+  attendance Attendance[]
+
+  @@map("cameras")
+}
+
+model Personnel {
+  id           String      @id @default(cuid())
+  name         String
+  employeeId   String?
+  department   String?
+  position     String?
+  role         String?     // Role from signup (Site Manager, Worker, etc.)
+  photo        String?     // S3 URL for uploaded photo
+  status       String      @default("pending")
+  accessLevel  String      @default("basic")
+  isAuthorized Boolean     @default(false)
+  siteId       String
+  authorizedBy String?
+  authorizedAt DateTime?
+  requestDate  DateTime?   // When they signed up
+  expiresAt    DateTime?   // 24-hour expiry
+  currentZone  String?     // Current location
+  faceDescriptor Json?     // Face recognition data as JSON
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  site         Site        @relation(fields: [siteId], references: [id])
+  violations   Violation[]
+  attendance   Attendance[] @relation("PersonnelAttendance")
+
+  @@map("personnel")
+}
+
+model Violation {
+  id          String     @id @default(cuid())
+  type        String
+  description String
+  severity    String     @default("medium")
+  status      String     @default("active")
+  location    String?
+  siteId      String
+  cameraId    String?
+  personnelId String?
+  imageUrl    String?
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  camera      Camera?    @relation(fields: [cameraId], references: [id])
+  personnel   Personnel? @relation(fields: [personnelId], references: [id])
+  site        Site       @relation(fields: [siteId], references: [id])
+
+  @@map("violations")
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  type        String
+  description String
+  userId      String?
+  siteId      String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@map("activities")
+} 
+
+model Attendance {
+  id          String   @id @default(cuid())
+  siteId      String
+  personnelId String   // Changed from knownFaceId to personnelId
+  cameraId    String
+  confidence  Float
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  site      Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  personnel Personnel @relation("PersonnelAttendance", fields: [personnelId], references: [id], onDelete: Cascade)
+  camera    Camera    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  
+  @@map("attendance")
+}
+
+
