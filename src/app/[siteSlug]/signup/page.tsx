@@ -23,7 +23,7 @@ export default function Signup() {
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
-  const [photo, setPhoto] = useState<File | null>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
 
   useEffect(() => {
     console.log("SITE SLUG",siteSlug);
@@ -78,26 +78,43 @@ export default function Signup() {
     formData.append("siteSlug", siteSlug as string);
     formData.append("name", name);
     formData.append("role", role);
-    if (photo) {
-      formData.append("photo", photo);
-    }
+    
+    // Append all photos
+    photos.forEach((photo) => {
+      formData.append("photos", photo);
+    });
 
     signupMutation.mutate(formData);
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+    const files = Array.from(e.target.files || []);
+    
+    // Validate each file
+    const validFiles: File[] = [];
+    for (const file of files) {
       if (file.size > 5 * 1024 * 1024) {
-        // 5MB limit
+        // 5MB limit per file
         toast({
           title: "File Too Large",
-          description: "Photo must be less than 5MB",
+          description: `${file.name} must be less than 5MB`,
           variant: "destructive",
         });
-        return;
+        continue;
       }
-      setPhoto(file);
+      validFiles.push(file);
+    }
+    
+    // Limit to maximum 5 photos
+    if (validFiles.length > 5) {
+      toast({
+        title: "Too Many Photos",
+        description: "Maximum 5 photos allowed",
+        variant: "destructive",
+      });
+      setPhotos(validFiles.slice(0, 5));
+    } else {
+      setPhotos(validFiles);
     }
   };
 
@@ -203,32 +220,67 @@ export default function Signup() {
 
             <div>
               <Label
-                htmlFor="photo"
+                htmlFor="photos"
                 className="block text-sm font-medium text-gray-700 mb-2"
               >
-                Photo (Optional)
+                Photos (Optional - Max 5)
               </Label>
               <div className="flex items-center justify-center w-full">
                 <label
-                  htmlFor="photo"
+                  htmlFor="photos"
                   className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
                 >
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
                     <Upload className="w-8 h-8 mb-2 text-gray-400" />
                     <p className="mb-2 text-sm text-gray-500">
-                      {photo ? photo.name : "Click to upload photo"}
+                      {photos.length > 0 
+                        ? `${photos.length} photo${photos.length > 1 ? 's' : ''} selected`
+                        : "Click to upload photos"}
                     </p>
-                    <p className="text-xs text-gray-500">PNG, JPG (MAX. 5MB)</p>
+                    <p className="text-xs text-gray-500">PNG, JPG (MAX. 5MB each, 5 photos max)</p>
                   </div>
                   <input
-                    id="photo"
+                    id="photos"
                     type="file"
                     className="hidden"
                     accept="image/*"
+                    multiple
                     onChange={handlePhotoChange}
                   />
                 </label>
               </div>
+              
+              {/* Display selected photos */}
+              {photos.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Selected Photos:</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {photos.map((photo, index) => (
+                      <div key={index} className="relative">
+                        <div className="flex items-center p-2 bg-gray-100 rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-600 truncate">
+                              {photo.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {(photo.size / 1024 / 1024).toFixed(1)} MB
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPhotos(photos.filter((_, i) => i !== index));
+                            }}
+                            className="ml-2 text-red-500 hover:text-red-700"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <Button

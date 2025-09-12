@@ -65,7 +65,7 @@ model Personnel {
   department   String?
   position     String?
   role         String?     // Role from signup (Site Manager, Worker, etc.)
-  photo        String?     // S3 URL for uploaded photo
+  photos       Json?       // Array of S3 URLs for uploaded photos
   status       String      @default("pending")
   accessLevel  String      @default("basic")
   isAuthorized Boolean     @default(false)

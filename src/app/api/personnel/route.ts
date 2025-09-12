@@ -8,7 +8,15 @@ export async function POST(request: NextRequest) {
     const siteSlug = formData.get("siteSlug") as string;
     const name = formData.get("name") as string;
     const role = formData.get("role") as string;
-    const photoFile = formData.get("photo") as File | null;
+    
+    // Get all photo files from FormData
+    const photoFiles: File[] = [];
+    const entries = Array.from(formData.entries());
+    for (const [key, value] of entries) {
+      if (key === "photos" && value instanceof File) {
+        photoFiles.push(value);
+      }
+    }
 
     if (!siteSlug || !name || !role) {
       return NextResponse.json(
@@ -39,34 +47,29 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Handle photo upload to S3
-    let photoUrl = null;
-    if (photoFile) {
+    // Handle multiple photos upload to S3
+    let photoUrls: string[] = [];
+    if (photoFiles.length > 0) {
       try {
-        // Convert file to buffer
-        const bytes = await photoFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-
-        // Generate unique key for S3
-        const fileKey = S3Service.generatePersonnelPhotoKey(
-          newPersonnel.id,
-          photoFile.name
+        // Upload all photos to S3
+        photoUrls = await S3Service.uploadMultiplePersonnelPhotos(
+          photoFiles,
+          newPersonnel.id
         );
 
-        // Upload to S3
-        photoUrl = await S3Service.uploadFile(buffer, fileKey, photoFile.type);
-
-        // Update personnel record with photo URL
+        // Update personnel record with photos array
         await db.personnel.update({
           where: { id: newPersonnel.id },
-          data: { photo: photoUrl },
+          data: { 
+            photos: photoUrls
+          } as any, // Type assertion for the entire data object
         });
 
-        console.log(`Photo uploaded to S3: ${photoUrl}`);
+        console.log(`${photoUrls.length} photos uploaded to S3 for personnel ${newPersonnel.id}`);
       } catch (photoError) {
-        console.error("Error uploading photo to S3:", photoError);
+        console.error("Error uploading photos to S3:", photoError);
         // Don't fail the entire request if photo upload fails
-        // Just log the error and continue without photo
+        // Just log the error and continue without photos
       }
     }
 

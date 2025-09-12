@@ -161,12 +161,11 @@ export class Storage {
       where: { id },
     });
 
-    if (personnel?.photo) {
+    if (personnel?.photos && Array.isArray(personnel.photos) && personnel.photos.length > 0) {
       try {
-        // Extract S3 key from URL and delete from S3
-        const s3Key = S3Service.extractKeyFromUrl(personnel.photo);
-        await S3Service.deleteFile(s3Key);
-        console.log(`Deleted photo from S3: ${s3Key}`);
+        // Delete all photos from S3
+        await S3Service.deleteMultipleFiles(personnel.photos);
+        console.log(`Deleted ${personnel.photos.length} photos from S3`);
       } catch (error) {
         console.error("Error deleting photo from S3:", error);
         // Continue with personnel deletion even if S3 deletion fails

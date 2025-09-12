@@ -176,13 +176,13 @@ export default function PersonnelManagement({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
-                  {person.photo ? (
+                  {person.photos && Array.isArray(person.photos) && person.photos.length > 0 ? (
                     <img
-                      src={person.photo}
+                      src={person.photos[0]} // Show first photo as avatar
                       alt={person.name}
                       className="w-full h-full rounded-full object-cover"
                       onError={(e) => {
-                        console.log("Image failed to load:", person.photo);
+                        console.log("Image failed to load:", person.photos[0]);
                         console.log("Error details:", e);
                         e.currentTarget.style.display = "none";
                       }}

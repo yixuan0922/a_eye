@@ -124,6 +124,54 @@ export class S3Service {
     const urlParts = url.split("/");
     return urlParts.slice(3).join("/"); // Remove https://bucket-name.s3.region.amazonaws.com/
   }
+
+  /**
+   * Upload multiple files to S3 for personnel photos
+   */
+  static async uploadMultiplePersonnelPhotos(
+    files: File[],
+    personnelId: string
+  ): Promise<string[]> {
+    const uploadPromises = files.map(async (file, index) => {
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      
+      // Generate unique key with index to avoid conflicts
+      const fileKey = this.generatePersonnelPhotoKey(
+        personnelId,
+        `${index}_${file.name}`
+      );
+      
+      return this.uploadFile(buffer, fileKey, file.type);
+    });
+
+    try {
+      const photoUrls = await Promise.all(uploadPromises);
+      console.log(`Successfully uploaded ${photoUrls.length} photos for personnel ${personnelId}`);
+      return photoUrls;
+    } catch (error) {
+      console.error("Error uploading multiple photos:", error);
+      throw new Error("Failed to upload one or more photos");
+    }
+  }
+
+  /**
+   * Delete multiple files from S3 using URLs
+   */
+  static async deleteMultipleFiles(urls: string[]): Promise<void> {
+    const deletePromises = urls.map(url => {
+      const key = this.extractKeyFromUrl(url);
+      return this.deleteFile(key);
+    });
+
+    try {
+      await Promise.all(deletePromises);
+      console.log(`Successfully deleted ${urls.length} photos from S3`);
+    } catch (error) {
+      console.error("Error deleting multiple photos:", error);
+      throw new Error("Failed to delete one or more photos");
+    }
+  }
 }
 
 export default S3Service;

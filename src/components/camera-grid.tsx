@@ -296,7 +296,7 @@ export default function CameraGrid({ siteId }: CameraGridProps) {
           <strong>System Status:</strong> Face API:{" "}
           {faceApiLoaded ? "✅" : "❌"} | Personnel: {personnel?.length || 0} |
           Authorized Personnel:{" "}
-          {personnel?.filter((p: any) => p.isAuthorized && p.photo).length || 0}
+          {personnel?.filter((p: any) => p.isAuthorized && p.photos && Array.isArray(p.photos) && p.photos.length > 0).length || 0}
         </div>
       </div>
 
@@ -531,120 +531,138 @@ function CameraFeed({
           (person: any) => {
             const isAuthorized =
               person.isAuthorized && person.status === "authorized";
-            const hasPhoto = !!person.photo;
-            return isAuthorized && hasPhoto;
+            const hasPhotos = person.photos && Array.isArray(person.photos) && person.photos.length > 0;
+            return isAuthorized && hasPhotos;
           }
         );
 
         for (const person of authorizedPersonnelWithPhotos) {
           try {
-            // Create image element and load the photo via proxy to avoid CORS issues
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-
-            // Use image proxy to bypass CORS restrictions
-            const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(
-              person.photo
-            )}`;
-
-            // Wait for image to load
-            const imageLoaded = await new Promise((resolve, reject) => {
-              const timeout = setTimeout(() => {
-                reject(new Error("Image load timeout"));
-              }, 15000); // 15 second timeout (increased for proxy)
-
-              img.onload = () => {
-                clearTimeout(timeout);
-                resolve(true);
-              };
-
-              img.onerror = (error) => {
-                clearTimeout(timeout);
-                console.error(
-                  `Image load error for ${person.name} via proxy:`,
-                  error
-                );
-                reject(error);
-              };
-
-              img.src = proxyUrl;
-            });
-
-            // Check if face-api is available and models are loaded
-            if (!(window as any).faceapi) {
-              throw new Error("face-api not available on window object");
-            }
-
-            // Verify that required models are loaded
-            const faceapi = (window as any).faceapi;
-            if (
-              !faceapi.nets.ssdMobilenetv1.params ||
-              !faceapi.nets.faceLandmark68Net.params ||
-              !faceapi.nets.faceRecognitionNet.params ||
-              !faceapi.nets.tinyFaceDetector.params
-            ) {
-              throw new Error("Required face-api models are not loaded yet");
-            }
-
-            try {
-              // Try multiple face detection approaches with different thresholds
-              let detections = null;
-
-              // Method 1: Default SSD MobileNet with lower threshold
+            const personDescriptors = [];
+            
+            // Process all photos for this person
+            for (let i = 0; i < person.photos.length; i++) {
+              const photoUrl = person.photos[i];
+              
               try {
-                detections = await (window as any).faceapi
-                  .detectSingleFace(
-                    img,
-                    new (window as any).faceapi.SsdMobilenetv1Options({
-                      minConfidence: 0.3,
-                    })
-                  )
-                  .withFaceLandmarks()
-                  .withFaceDescriptor();
-              } catch (ssdError) {
-                // Silently continue to next method
-              }
+                // Create image element and load the photo via proxy to avoid CORS issues
+                const img = new Image();
+                img.crossOrigin = "anonymous";
 
-              // Method 2: Try TinyFaceDetector if SSD failed
-              if (!detections) {
-                try {
-                  detections = await (window as any).faceapi
-                    .detectSingleFace(
-                      img,
-                      new (window as any).faceapi.TinyFaceDetectorOptions({
-                        inputSize: 416,
-                        scoreThreshold: 0.3,
-                      })
-                    )
-                    .withFaceLandmarks()
-                    .withFaceDescriptor();
-                } catch (tinyError) {
-                  // Silently continue
+                // Use image proxy to bypass CORS restrictions
+                const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(photoUrl)}`;
+
+                // Wait for image to load
+                const imageLoaded = await new Promise((resolve, reject) => {
+                  const timeout = setTimeout(() => {
+                    reject(new Error("Image load timeout"));
+                  }, 15000); // 15 second timeout (increased for proxy)
+
+                  img.onload = () => {
+                    clearTimeout(timeout);
+                    resolve(true);
+                  };
+
+                  img.onerror = (error) => {
+                    clearTimeout(timeout);
+                    console.error(
+                      `Image load error for ${person.name} photo ${i + 1} via proxy:`,
+                      error
+                    );
+                    reject(error);
+                  };
+
+                  img.src = proxyUrl;
+                });
+
+                // Check if face-api is available and models are loaded
+                if (!(window as any).faceapi) {
+                  throw new Error("face-api not available on window object");
                 }
-              }
 
-              if (detections) {
-                const labeledDescriptor = new (
-                  window as any
-                ).faceapi.LabeledFaceDescriptors(person.name, [
-                  detections.descriptor,
-                ]);
-                labeledFaceDescriptors.push(labeledDescriptor);
-              } else {
-                // For testing: Create a dummy descriptor so we can test face recognition
-                const dummyDescriptor = new Float32Array(128).fill(0.1); // 128D face descriptor
-                const labeledDescriptor = new (
-                  window as any
-                ).faceapi.LabeledFaceDescriptors(person.name, [
-                  dummyDescriptor,
-                ]);
-                labeledFaceDescriptors.push(labeledDescriptor);
+                // Verify that required models are loaded
+                const faceapi = (window as any).faceapi;
+                if (
+                  !faceapi.nets.ssdMobilenetv1.params ||
+                  !faceapi.nets.faceLandmark68Net.params ||
+                  !faceapi.nets.faceRecognitionNet.params ||
+                  !faceapi.nets.tinyFaceDetector.params
+                ) {
+                  throw new Error("Required face-api models are not loaded yet");
+                }
+
+                try {
+                  // Try multiple face detection approaches with different thresholds
+                  let detections = null;
+
+                  // Method 1: Default SSD MobileNet with lower threshold
+                  try {
+                    detections = await (window as any).faceapi
+                      .detectSingleFace(
+                        img,
+                        new (window as any).faceapi.SsdMobilenetv1Options({
+                          minConfidence: 0.3,
+                        })
+                      )
+                      .withFaceLandmarks()
+                      .withFaceDescriptor();
+                  } catch (ssdError) {
+                    // Silently continue to next method
+                  }
+
+                  // Method 2: Try TinyFaceDetector if SSD failed
+                  if (!detections) {
+                    try {
+                      detections = await (window as any).faceapi
+                        .detectSingleFace(
+                          img,
+                          new (window as any).faceapi.TinyFaceDetectorOptions({
+                            inputSize: 416,
+                            scoreThreshold: 0.3,
+                          })
+                        )
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+                    } catch (tinyError) {
+                      // Silently continue
+                    }
+                  }
+
+                  if (detections) {
+                    personDescriptors.push(detections.descriptor);
+                    console.log(`✅ Face detected in photo ${i + 1} for ${person.name}`);
+                  } else {
+                    console.log(`❌ No face detected in photo ${i + 1} for ${person.name}`);
+                  }
+                } catch (faceDetectionError) {
+                  console.error(
+                    `Face detection failed for ${person.name} photo ${i + 1}:`,
+                    faceDetectionError
+                  );
+                }
+              } catch (photoError) {
+                console.error(
+                  `Error processing photo ${i + 1} for ${person.name}:`,
+                  photoError
+                );
               }
-            } catch (faceDetectionError) {
-              console.error(
-                `Face detection failed for ${person.name}:`,
-                faceDetectionError
-              );
+            }
+            
+            // Create labeled descriptor with all valid face descriptors for this person
+            if (personDescriptors.length > 0) {
+              const labeledDescriptor = new (
+                window as any
+              ).faceapi.LabeledFaceDescriptors(person.name, personDescriptors);
+              labeledFaceDescriptors.push(labeledDescriptor);
+              console.log(`✅ Created face model for ${person.name} with ${personDescriptors.length} photo(s)`);
+            } else {
+              console.log(`❌ No valid face descriptors found for ${person.name}`);
+              // Optionally create a dummy descriptor for testing
+              const dummyDescriptor = new Float32Array(128).fill(0.1);
+              const labeledDescriptor = new (
+                window as any
+              ).faceapi.LabeledFaceDescriptors(person.name, [dummyDescriptor]);
+              labeledFaceDescriptors.push(labeledDescriptor);
             }
           } catch (error) {
             console.error(`Error processing face for ${person.name}:`, error);
