@@ -11,7 +11,7 @@ async function fileToBase64(file: File): Promise<string> {
 
 // Helper function to call Flask add_face endpoint
 async function addFaceToFlask(
-  name: string,
+  personnelId: string,
   imageBase64: string
 ): Promise<boolean> {
   try {
@@ -21,7 +21,7 @@ async function addFaceToFlask(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: name,
+        name: personnelId,
         image: imageBase64,
       }),
     });
@@ -113,7 +113,10 @@ export async function POST(request: NextRequest) {
         for (let i = 0; i < photoFiles.length; i++) {
           try {
             const imageBase64 = await fileToBase64(photoFiles[i]);
-            const flaskSuccess = await addFaceToFlask(name, imageBase64);
+            const flaskSuccess = await addFaceToFlask(
+              newPersonnel.id,
+              imageBase64
+            );
             if (flaskSuccess) {
               flaskSuccessCount++;
             }
