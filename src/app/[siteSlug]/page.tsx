@@ -16,11 +16,9 @@ import {
   Camera,
   FileText,
   Calendar,
-  User,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import OverviewStats from "@/components/overview-stats";
-import CameraGrid from "@/components/camera-grid";
 import PersonnelManagement from "@/components/personnel-management";
 import PPEViolations from "@/components/ppe-violations";
 import Reports from "@/components/reports";
@@ -183,7 +181,11 @@ export default function Dashboard() {
           </TabsContent>
 
           <TabsContent value="cameras" className="mt-6">
-            <CameraGrid siteId={siteData.id} />
+            <iframe
+              src="https://aeye001.biofuel.osiris.sg/"
+              className="w-full h-[calc(100vh-200px)] border-0 rounded-lg"
+              title="Camera Feed"
+            />
           </TabsContent>
 
           <TabsContent value="personnel" className="mt-6">
