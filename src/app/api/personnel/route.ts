@@ -2,44 +2,57 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { S3Service } from "@/lib/s3";
 
-// Helper function to convert File to base64
-async function fileToBase64(file: File): Promise<string> {
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-  return buffer.toString("base64");
-}
-
-// Helper function to call Flask add_face endpoint
-async function addFaceToFlask(
+// Helper function to call Flask add_faces endpoint with multiple files
+async function addFacesToFlask(
   personnelId: string,
   name: string,
-  imageBase64: string
-): Promise<boolean> {
+  photoFiles: File[]
+): Promise<{ added: number; failed: number; results: any[]; errors: any[] }> {
   try {
-    const response = await fetch("http://localhost:5000/add_face", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        personnelId: personnelId,
-        name: name,
-        image: imageBase64,
-      }),
+    // Create FormData for multipart upload
+    const formData = new FormData();
+
+    // Add each photo file
+    photoFiles.forEach((file) => {
+      formData.append("files", file);
     });
 
-    if (!response.ok) {
+    // Add person metadata
+    formData.append("name", name);
+    formData.append("personnelId", personnelId);
+
+    const response = await fetch(
+      "https://aeye001.biofuel.osiris.sg/api/add_faces",
+      {
+        method: "POST",
+        body: formData, // No Content-Type header - browser sets it with boundary
+      }
+    );
+
+    if (!response.ok && response.status !== 207) {
       const errorData = await response.json();
-      console.error("Flask add_face error:", errorData);
-      return false;
+      console.error("Flask add_faces error:", errorData);
+      return {
+        added: 0,
+        failed: photoFiles.length,
+        results: [],
+        errors: [errorData],
+      };
     }
 
     const result = await response.json();
-    console.log("Flask add_face success:", result);
-    return result.success === true;
+    console.log(
+      `Flask add_faces: ${result.added} added, ${result.failed} failed`
+    );
+    return result;
   } catch (error) {
-    console.error("Error calling Flask add_face endpoint:", error);
-    return false;
+    console.error("Error calling Flask add_faces endpoint:", error);
+    return {
+      added: 0,
+      failed: photoFiles.length,
+      results: [],
+      errors: [{ error: String(error) }],
+    };
   }
 }
 
@@ -110,30 +123,20 @@ export async function POST(request: NextRequest) {
           `${photoUrls.length} photos uploaded to S3 for personnel ${newPersonnel.id}`
         );
 
-        // Call Flask add_face endpoint for each photo
-        let flaskSuccessCount = 0;
-        for (let i = 0; i < photoFiles.length; i++) {
-          try {
-            const imageBase64 = await fileToBase64(photoFiles[i]);
-            const flaskSuccess = await addFaceToFlask(
-              newPersonnel.id,
-              name,
-              imageBase64
-            );
-            if (flaskSuccess) {
-              flaskSuccessCount++;
-            }
-          } catch (flaskError) {
-            console.error(
-              `Error processing photo ${i + 1} for Flask:`,
-              flaskError
-            );
-          }
-        }
+        // Call Flask add_faces endpoint with all photos at once
+        const flaskResult = await addFacesToFlask(
+          newPersonnel.id,
+          name,
+          photoFiles
+        );
 
         console.log(
-          `${flaskSuccessCount}/${photoFiles.length} photos successfully added to Flask face recognition database`
+          `Flask face recognition: ${flaskResult.added}/${photoFiles.length} photos successfully added`
         );
+
+        if (flaskResult.errors.length > 0) {
+          console.warn("Flask face recognition errors:", flaskResult.errors);
+        }
       } catch (photoError) {
         console.error("Error uploading photos to S3:", photoError);
         // Don't fail the entire request if photo upload fails
