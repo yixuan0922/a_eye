@@ -83,9 +83,9 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
             <div className="flex items-start justify-between">
               <div className="flex items-start space-x-4">
                 <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
-                  {violation.image ? (
+                  {violation.imageUrl ? (
                     <img
-                      src={violation.image}
+                      src={violation.imageUrl}
                       alt="Violation"
                       className="w-full h-full rounded-lg object-cover"
                     />
@@ -110,9 +110,9 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
                   </p>
 
                   <div className="flex items-center space-x-4 text-sm text-gray-500">
-                    <span>{formatTime(violation.detectedAt)}</span>
-                    {violation.confidence && (
-                      <span>Confidence: {violation.confidence}%</span>
+                    <span>{formatTime(violation.createdAt)}</span>
+                    {violation.location && (
+                      <span>Location: {violation.location}</span>
                     )}
                   </div>
                 </div>
@@ -122,7 +122,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
                 <Button size="sm" variant="outline">
                   <Eye className="w-4 h-4" />
                 </Button>
-                {!violation.isResolved && (
+                {!violation.resolvedAt && violation.status === "active" && (
                   <Button size="sm" className="bg-green-600 hover:bg-green-700">
                     <CheckCircle className="w-4 h-4" />
                   </Button>

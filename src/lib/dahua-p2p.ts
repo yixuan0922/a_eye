@@ -41,7 +41,7 @@ export class DahuaP2PClient {
 
       if (response.success) {
         this.isConnected = true;
-        this.connectionId = response.connectionId;
+        this.connectionId = response.connectionId ?? null;
         console.log("P2P connection established:", this.connectionId);
         return true;
       }

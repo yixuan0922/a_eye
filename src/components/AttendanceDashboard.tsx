@@ -23,6 +23,23 @@ interface AttendanceDashboardProps {
   siteId: string;
 }
 
+interface DayRecord {
+  date: string;
+  present: boolean;
+  firstSeen: Date;
+  lastSeen: Date;
+  totalDetections: number;
+  cameras: string[];
+}
+
+interface PersonReport {
+  name: string;
+  photoUrl: string;
+  days: {
+    [date: string]: DayRecord;
+  };
+}
+
 export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateRange, setDateRange] = useState({
@@ -50,15 +67,15 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
 
   const exportAttendance = () => {
     if (!attendanceReport) return;
-    
-    const csvContent = "data:text/csv;charset=utf-8," + 
+
+    const csvContent = "data:text/csv;charset=utf-8," +
       "Name,Date,First Seen,Last Seen,Total Detections,Cameras\n" +
-      attendanceReport.flatMap(person => 
-        Object.values(person.days).map((day: any) =>
+      (attendanceReport as PersonReport[]).flatMap(person =>
+        Object.values(person.days).map((day: DayRecord) =>
           `${person.name},${day.date},${format(new Date(day.firstSeen), 'HH:mm:ss')},${format(new Date(day.lastSeen), 'HH:mm:ss')},${day.totalDetections},"${day.cameras.join(', ')}"`
         )
       ).join("\n");
-    
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -161,31 +178,44 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
               </div>
             ) : (
               <div className="space-y-3">
-                {todayAttendance?.map((record) => (
-                  <div key={record.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={record.knownFace.photoUrl}
-                        alt={record.knownFace.name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                      <div>
-                        <h4 className="font-medium">{record.knownFace.name}</h4>
-                        <p className="text-sm text-gray-500">
-                          {format(new Date(record.timestamp), 'HH:mm:ss')}
+                {todayAttendance?.map((record) => {
+                  const photoUrl = record.personnel.photos
+                    ? Array.isArray(record.personnel.photos)
+                      ? record.personnel.photos[0]
+                      : null
+                    : null;
+                  return (
+                    <div key={record.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {photoUrl ? (
+                          <img
+                            src={photoUrl as string}
+                            alt={record.personnel.name}
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                            <Users className="w-6 h-6 text-gray-500" />
+                          </div>
+                        )}
+                        <div>
+                          <h4 className="font-medium">{record.personnel.name}</h4>
+                          <p className="text-sm text-gray-500">
+                            {format(new Date(record.timestamp), 'HH:mm:ss')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="secondary">
+                          {Math.round(record.confidence)}% confidence
+                        </Badge>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Camera: {record.camera?.name || 'Unknown'}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge variant="secondary">
-                        {Math.round(record.confidence)}% confidence
-                      </Badge>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Camera: {record.camera?.name || 'Unknown'}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -232,22 +262,28 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
             </div>
           ) : (
             <div className="space-y-4">
-              {attendanceReport?.map((person) => (
+              {(attendanceReport as PersonReport[])?.map((person) => (
                 <div key={person.name} className="border rounded-lg p-4">
                   <div className="flex items-center gap-3 mb-3">
-                    <img
-                      src={person.photoUrl}
-                      alt={person.name}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
+                    {person.photoUrl ? (
+                      <img
+                        src={person.photoUrl}
+                        alt={person.name}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                        <Users className="w-5 h-5 text-gray-500" />
+                      </div>
+                    )}
                     <h4 className="font-medium">{person.name}</h4>
                     <Badge variant="outline">
                       {Object.keys(person.days).length} days present
                     </Badge>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {Object.values(person.days).map((day: any) => (
+                    {Object.values(person.days).map((day: DayRecord) => (
                       <div key={day.date} className="bg-gray-50 rounded p-3 text-sm">
                         <div className="font-medium">{format(new Date(day.date), 'MMM dd')}</div>
                         <div className="text-gray-600">

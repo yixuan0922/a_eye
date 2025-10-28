@@ -3,7 +3,7 @@ import * as React from "react";
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import { cva } from "class-variance-authority";
 
-import { cn } from "@biofuel/ui";
+import { cn } from "@/lib/utils";
 
 const sliderVariants = cva(
   "relative flex w-full touch-none select-none items-center",

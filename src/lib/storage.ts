@@ -4,7 +4,6 @@ import type {
   Personnel,
   Camera,
   Violation,
-  Incident,
   Activity,
 } from "@prisma/client";
 import QRCode from "qrcode";
@@ -24,8 +23,9 @@ export class Storage {
   }
 
   async getSiteBySlug(slug: string): Promise<Site | null> {
+    // Site model doesn't have slug field, using code instead
     return await db.site.findUnique({
-      where: { slug },
+      where: { code: slug },
       include: {
         cameras: true,
         personnel: true,
@@ -48,13 +48,19 @@ export class Storage {
 
   async createSite(data: {
     name: string;
-    slug: string;
-    adminUsername: string;
-    adminPassword: string;
+    code: string;
+    location: string;
+    description?: string;
     qrCode?: string;
   }): Promise<Site> {
     return await db.site.create({
-      data,
+      data: {
+        name: data.name,
+        code: data.code,
+        location: data.location,
+        description: data.description,
+        qrCode: data.qrCode,
+      },
     });
   }
 
@@ -164,8 +170,9 @@ export class Storage {
     if (personnel?.photos && Array.isArray(personnel.photos) && personnel.photos.length > 0) {
       try {
         // Delete all photos from S3
-        await S3Service.deleteMultipleFiles(personnel.photos);
-        console.log(`Deleted ${personnel.photos.length} photos from S3`);
+        const photoUrls = personnel.photos.filter((p): p is string => typeof p === 'string');
+        await S3Service.deleteMultipleFiles(photoUrls);
+        console.log(`Deleted ${photoUrls.length} photos from S3`);
       } catch (error) {
         console.error("Error deleting photo from S3:", error);
         // Continue with personnel deletion even if S3 deletion fails
@@ -216,7 +223,7 @@ export class Storage {
       where: { id },
       data: {
         status,
-        lastActivity: new Date(),
+        updatedAt: new Date(),
       },
     });
   }
@@ -286,12 +293,13 @@ export class Storage {
     });
   }
 
-  // Incidents
-  async getIncidentsBySite(siteId: string): Promise<Incident[]> {
-    return await db.incident.findMany({
-      where: { siteId },
-      orderBy: { reportedAt: "desc" },
-    });
+  // Incidents (temporarily disabled - no Incident model in schema)
+  async getIncidentsBySite(siteId: string): Promise<any[]> {
+    // return await db.incident.findMany({
+    //   where: { siteId },
+    //   orderBy: { reportedAt: "desc" },
+    // });
+    return [];
   }
 
   async createIncident(data: {
@@ -301,14 +309,15 @@ export class Storage {
     location?: string;
     severity?: string;
     status?: string;
-  }): Promise<Incident> {
-    return await db.incident.create({
-      data: {
-        ...data,
-        status: data.status || "active",
-        severity: data.severity || "medium",
-      },
-    });
+  }): Promise<any> {
+    // return await db.incident.create({
+    //   data: {
+    //     ...data,
+    //     status: data.status || "active",
+    //     severity: data.severity || "medium",
+    //   },
+    // });
+    throw new Error("Incident model not available");
   }
 
   // Activities

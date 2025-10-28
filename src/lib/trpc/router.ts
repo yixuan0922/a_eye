@@ -21,9 +21,9 @@ export const appRouter = router({
     .input(
       z.object({
         name: z.string(),
-        slug: z.string(),
-        adminUsername: z.string(),
-        adminPassword: z.string(),
+        code: z.string(),
+        location: z.string(),
+        description: z.string().optional(),
         qrCode: z.string().optional(),
       })
     )
@@ -239,12 +239,15 @@ export const appRouter = router({
 
   // Camera Feed
 
-  // Face recognition procedures
+  // Face recognition procedures (using Personnel model)
   getKnownFaces: publicProcedure
     .input(z.string())
     .query(async ({ input: siteId }) => {
-      return await db.knownFace.findMany({
-        where: { siteId },
+      return await db.personnel.findMany({
+        where: {
+          siteId,
+          isAuthorized: true
+        },
         orderBy: { createdAt: "desc" },
       });
     }),
@@ -259,12 +262,14 @@ export const appRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      return await db.knownFace.create({
+      return await db.personnel.create({
         data: {
           name: input.name,
           siteId: input.siteId,
-          descriptor: input.descriptor,
-          photoUrl: input.photoUrl,
+          faceDescriptor: input.descriptor,
+          photos: [input.photoUrl],
+          isAuthorized: true,
+          status: "approved",
         },
       });
     }),
@@ -272,7 +277,7 @@ export const appRouter = router({
   deleteKnownFace: publicProcedure
     .input(z.string())
     .mutation(async ({ input: faceId }) => {
-      return await db.knownFace.delete({
+      return await db.personnel.delete({
         where: { id: faceId },
       });
     }),
@@ -301,7 +306,8 @@ export const appRouter = router({
           },
         },
         include: {
-          knownFace: true,
+          personnel: true,
+          camera: true,
         },
         orderBy: { timestamp: "desc" },
       });
@@ -311,7 +317,7 @@ export const appRouter = router({
     .input(
       z.object({
         siteId: z.string(),
-        knownFaceId: z.string(),
+        personnelId: z.string(),
         cameraId: z.string(),
         confidence: z.number(),
         timestamp: z.date().optional(),
@@ -324,7 +330,7 @@ export const appRouter = router({
       const recentAttendance = await db.attendance.findFirst({
         where: {
           siteId: input.siteId,
-          knownFaceId: input.knownFaceId,
+          personnelId: input.personnelId,
           timestamp: {
             gte: new Date(now.getTime() - 30000), // 30 seconds ago
           },
@@ -338,7 +344,7 @@ export const appRouter = router({
       return await db.attendance.create({
         data: {
           siteId: input.siteId,
-          knownFaceId: input.knownFaceId,
+          personnelId: input.personnelId,
           cameraId: input.cameraId,
           confidence: input.confidence,
           timestamp: now,
@@ -364,7 +370,7 @@ export const appRouter = router({
           },
         },
         include: {
-          knownFace: true,
+          personnel: true,
           camera: true,
         },
         orderBy: { timestamp: "desc" },
@@ -373,12 +379,12 @@ export const appRouter = router({
       // Group by person and day
       const report = attendance.reduce((acc, record) => {
         const date = record.timestamp.toDateString();
-        const personId = record.knownFaceId;
+        const personId = record.personnelId;
 
         if (!acc[personId]) {
           acc[personId] = {
-            name: record.knownFace.name,
-            photoUrl: record.knownFace.photoUrl,
+            name: record.personnel.name,
+            photoUrl: record.personnel.photos ? (Array.isArray(record.personnel.photos) ? record.personnel.photos[0] : null) : null,
             days: {},
           };
         }

@@ -3,15 +3,15 @@
 import * as React from "react";
 import { PanelLeft } from "lucide-react";
 
-import { cn } from "@biofuel/ui";
-import { useIsMobile } from "@biofuel/ui/hooks/use-mobile";
-import { Button } from "@biofuel/ui/ui/button";
+import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/lib/utils/hooks/use-mobile";
+import { Button } from "@/lib/utils/ui/button";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetTitle,
-} from "@biofuel/ui/ui/sheet";
+} from "@/lib/utils/ui/sheet";
 
 export const SIDEBAR_STATE_COOKIE = "sidebar:state";
 

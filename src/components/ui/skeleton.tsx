@@ -1,4 +1,4 @@
-import { cn } from "@biofuel/ui";
+import { cn } from "@/lib/utils";
 
 function Skeleton({
   className,
