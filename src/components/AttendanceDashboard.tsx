@@ -40,6 +40,21 @@ interface PersonReport {
   };
 }
 
+interface AttendanceRecord {
+  id: string;
+  timestamp: Date;
+  confidence: number;
+  personnel: {
+    id: string;
+    name: string;
+    photos: any;
+  };
+  camera: {
+    id: string;
+    name: string;
+  } | null;
+}
+
 export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateRange, setDateRange] = useState({
@@ -178,7 +193,7 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
               </div>
             ) : (
               <div className="space-y-3">
-                {todayAttendance?.map((record) => {
+                {(todayAttendance as AttendanceRecord[])?.map((record) => {
                   const photoUrl = record.personnel.photos
                     ? Array.isArray(record.personnel.photos)
                       ? record.personnel.photos[0]
