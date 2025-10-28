@@ -80,16 +80,16 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
   const stats = {
     totalPersonnel: personnel?.length || 0,
     pendingApprovals:
-      personnel?.filter((p) => p.status === "pending").length || 0,
+      personnel?.filter((p: any) => p.status === "pending").length || 0,
     authorizedPersonnel:
-      personnel?.filter((p) => p.status === "authorized").length || 0,
+      personnel?.filter((p: any) => p.status === "authorized").length || 0,
     totalCameras: cameras?.length || 0,
-    activeCameras: cameras?.filter((c) => c.status === "online").length || 0,
-    offlineCameras: cameras?.filter((c) => c.status === "offline").length || 0,
+    activeCameras: cameras?.filter((c: any) => c.status === "online").length || 0,
+    offlineCameras: cameras?.filter((c: any) => c.status === "offline").length || 0,
     activeViolations: violations?.length || 0,
     totalIncidents: incidents?.length || 0,
     recentIncidents:
-      incidents?.filter((i) => {
+      incidents?.filter((i: any) => {
         const dayAgo = new Date();
         dayAgo.setDate(dayAgo.getDate() - 1);
         return i.reportedAt && new Date(i.reportedAt) > dayAgo;
@@ -331,7 +331,7 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {personnel?.slice(0, 3).map((person) => (
+            {personnel?.slice(0, 3).map((person: any) => (
               <div
                 key={person.id}
                 className="flex items-center justify-between py-2 border-b border-border last:border-0"
