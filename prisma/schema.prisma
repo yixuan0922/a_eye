@@ -8,21 +8,22 @@ datasource db {
 }
 
 model Site {
-  id            String         @id @default(cuid())
-  name          String
-  location      String
-  code          String         @unique
-  description   String?
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  qrCode        String?
-  attendance    Attendance[]
-  cameras       Camera[]
-  personnel     Personnel[]
-  ppeViolations PPEViolation[]
-  users         User[]
-  violations    Violation[]
+  id                 String               @id @default(cuid())
+  name               String
+  location           String
+  code               String               @unique
+  description        String?
+  isActive           Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  qrCode             String?
+  attendance         Attendance[]
+  cameras            Camera[]
+  personnel          Personnel[]
+  ppeViolations      PPEViolation[]
+  users              User[]
+  violations         Violation[]
+  unauthorizedAccess UnauthorizedAccess[]
 
   @@map("sites")
 }
@@ -42,48 +43,50 @@ model User {
 }
 
 model Camera {
-  id            String         @id @default(cuid())
-  name          String
-  location      String
-  ipAddress     String?
-  status        String         @default("online")
-  siteId        String
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  streamUrl     String?
-  attendance    Attendance[]
-  site          Site           @relation(fields: [siteId], references: [id])
-  ppeViolations PPEViolation[]
-  violations    Violation[]
+  id                 String               @id @default(cuid())
+  name               String
+  location           String
+  ipAddress          String?
+  status             String               @default("online")
+  siteId             String
+  isActive           Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  streamUrl          String?
+  attendance         Attendance[]
+  site               Site                 @relation(fields: [siteId], references: [id])
+  ppeViolations      PPEViolation[]
+  violations         Violation[]
+  unauthorizedAccess UnauthorizedAccess[]
 
   @@map("cameras")
 }
 
 model Personnel {
-  id             String         @id @default(cuid())
-  name           String
-  employeeId     String?
-  department     String?
-  position       String?
-  status         String         @default("pending")
-  accessLevel    String         @default("basic")
-  siteId         String
-  authorizedBy   String?
-  authorizedAt   DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  currentZone    String?
-  expiresAt      DateTime?
-  faceDescriptor Json?
-  isAuthorized   Boolean        @default(false)
-  requestDate    DateTime?
-  role           String?
-  photos         Json?
-  attendance     Attendance[]   @relation("PersonnelAttendance")
-  site           Site           @relation(fields: [siteId], references: [id])
-  ppeViolations  PPEViolation[]
-  violations     Violation[]
+  id                 String               @id @default(cuid())
+  name               String
+  employeeId         String?
+  department         String?
+  position           String?
+  status             String               @default("pending")
+  accessLevel        String               @default("basic")
+  siteId             String
+  authorizedBy       String?
+  authorizedAt       DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  currentZone        String?
+  expiresAt          DateTime?
+  faceDescriptor     Json?
+  isAuthorized       Boolean              @default(false)
+  requestDate        DateTime?
+  role               String?
+  photos             Json?
+  attendance         Attendance[]         @relation("PersonnelAttendance")
+  site               Site                 @relation(fields: [siteId], references: [id])
+  ppeViolations      PPEViolation[]
+  violations         Violation[]
+  unauthorizedAccess UnauthorizedAccess[]
 
   @@map("personnel")
 }
@@ -175,4 +178,46 @@ model PPEViolation {
   @@index([cameraId, detectionTimestamp])
   @@index([currentState, status])
   @@map("ppe_violations")
+}
+
+model UnauthorizedAccess {
+  id                      String     @id @default(cuid())
+  // Tracking Information
+  trackId                 Int
+  // Location Information
+  siteId                  String
+  site                    Site       @relation(fields: [siteId], references: [id])
+  cameraId                String?
+  camera                  Camera?    @relation(fields: [cameraId], references: [id])
+  cameraName              String
+  location                String
+  // Detection Information
+  detectionTimestamp      DateTime
+  durationSeconds         Float
+  totalFramesTracked      Int
+  faceDetectionAttempts   Int
+  // Evidence
+  snapshotUrl             String?
+  bbox                    Json? // [x1, y1, x2, y2]
+  // Status
+  status                  String     @default("active") // active, resolved, ignored
+  severity                String     @default("high") // high, medium, low
+  // Resolution
+  resolvedAt              DateTime?
+  resolvedBy              String?
+  resolutionNotes         String?
+  // Person Information (if later identified)
+  identifiedPersonName    String?
+  identifiedPersonnelId   String?
+  identifiedPersonnel     Personnel? @relation(fields: [identifiedPersonnelId], references: [id])
+  // Timestamps
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
+
+  @@index([siteId])
+  @@index([cameraId])
+  @@index([trackId])
+  @@index([status])
+  @@index([detectionTimestamp])
+  @@map("unauthorized_access")
 }
