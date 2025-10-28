@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { S3Service } from "@/lib/s3"
 
-const s3Service = new S3Service()
-
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -36,7 +34,7 @@ export async function POST(
     const existingPhotos = (personnel.photos as string[]) || []
 
     // Upload new photos to S3
-    const newPhotoUrls = await s3Service.uploadMultiplePersonnelPhotos(
+    const newPhotoUrls = await S3Service.uploadMultiplePersonnelPhotos(
       photos,
       id
     )
@@ -120,7 +118,7 @@ export async function DELETE(
 
     // Delete from S3
     try {
-      await s3Service.deleteMultipleFiles([photoUrl])
+      await S3Service.deleteMultipleFiles([photoUrl])
     } catch (s3Error) {
       console.error("Error deleting from S3:", s3Error)
       // Continue even if S3 deletion fails
