@@ -293,6 +293,103 @@ export class Storage {
     });
   }
 
+  // PPE Violations
+  async getPPEViolationsBySite(siteId: string): Promise<any[]> {
+    return await db.pPEViolation.findMany({
+      where: { siteId },
+      include: {
+        site: true,
+        camera: true,
+        personnel: true,
+      },
+      orderBy: { detectionTimestamp: "desc" },
+    });
+  }
+
+  async getActivePPEViolationsBySite(siteId: string): Promise<any[]> {
+    return await db.pPEViolation.findMany({
+      where: {
+        siteId,
+        status: "active",
+      },
+      include: {
+        site: true,
+        camera: true,
+        personnel: true,
+      },
+      orderBy: { detectionTimestamp: "desc" },
+    });
+  }
+
+  async getPPEViolation(id: string): Promise<any | null> {
+    return await db.pPEViolation.findUnique({
+      where: { id },
+      include: {
+        site: true,
+        camera: true,
+        personnel: true,
+      },
+    });
+  }
+
+  async createPPEViolation(data: {
+    personName: string;
+    personnelId?: string;
+    confidenceScore?: number;
+    siteId: string;
+    cameraId?: string;
+    cameraName: string;
+    location?: string;
+    previousState: string;
+    currentState: string;
+    ppeWearing: string[];
+    ppeMissing: string[];
+    ppeRequired: string[];
+    violationReason: string;
+    severity?: string;
+    detectionTimestamp: Date;
+    snapshotUrl?: string;
+    snapshotMetadata?: any;
+  }): Promise<any> {
+    return await db.pPEViolation.create({
+      data: {
+        ...data,
+        severity: data.severity || "medium",
+        status: "active",
+      },
+    });
+  }
+
+  async resolvePPEViolation(
+    id: string,
+    resolvedBy: string,
+    resolutionNotes?: string
+  ): Promise<any> {
+    return await db.pPEViolation.update({
+      where: { id },
+      data: {
+        status: "resolved",
+        resolvedBy,
+        resolvedAt: new Date(),
+        resolutionNotes,
+      },
+    });
+  }
+
+  async acknowledgePPEViolation(
+    id: string,
+    acknowledgedBy: string
+  ): Promise<any> {
+    return await db.pPEViolation.update({
+      where: { id },
+      data: {
+        status: "acknowledged",
+        acknowledgedBy,
+        acknowledgedAt: new Date(),
+      },
+    });
+  }
+
   // Incidents (temporarily disabled - no Incident model in schema)
   async getIncidentsBySite(siteId: string): Promise<any[]> {
     // return await db.incident.findMany({

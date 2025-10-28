@@ -21,6 +21,7 @@ model Site {
   personnel   Personnel[]
   users       User[]
   violations  Violation[]
+  ppeViolations PPEViolation[]
   attendance Attendance[]
 
   @@map("sites")
@@ -53,6 +54,7 @@ model Camera {
   updatedAt  DateTime    @updatedAt
   site       Site        @relation(fields: [siteId], references: [id])
   violations Violation[]
+  ppeViolations PPEViolation[]
   attendance Attendance[]
 
   @@map("cameras")
@@ -80,6 +82,7 @@ model Personnel {
   updatedAt    DateTime    @updatedAt
   site         Site        @relation(fields: [siteId], references: [id])
   violations   Violation[]
+  ppeViolations PPEViolation[]
   attendance   Attendance[] @relation("PersonnelAttendance")
 
   @@map("personnel")
@@ -126,13 +129,70 @@ model Attendance {
   cameraId    String
   confidence  Float
   timestamp   DateTime @default(now())
-  
+
   // Relations
   site      Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
   personnel Personnel @relation("PersonnelAttendance", fields: [personnelId], references: [id], onDelete: Cascade)
   camera    Camera    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
-  
+
   @@map("attendance")
+}
+
+model PPEViolation {
+  id                 String    @id @default(cuid())
+
+  // Person Information
+  personName         String                          // Name from face recognition
+  personnelId        String?                         // Link to personnel if registered
+  confidenceScore    Float?                          // Face recognition confidence
+
+  // Location & Camera
+  siteId             String                          // Required site reference
+  cameraId           String?                         // Camera that detected violation
+  cameraName         String                          // Camera friendly name
+  location           String?                         // Physical location description
+
+  // PPE State Information
+  previousState      String                          // e.g., "compliant", "missing_hardhat"
+  currentState       String                          // e.g., "missing_hardhat", "missing_vest"
+  ppeWearing         Json                            // ["Vest", "Gloves"]
+  ppeMissing         Json                            // ["Hard_hat"]
+  ppeRequired        Json                            // ["Hard_hat", "Vest"]
+
+  // Violation Metadata
+  violationReason    String                          // "first_violation", "state_changed", etc.
+  severity           String     @default("medium")   // "low", "medium", "high"
+  status             String     @default("active")   // "active", "resolved", "acknowledged"
+
+  // Timestamps
+  detectionTimestamp DateTime                        // Exact detection time
+  gracePeriodStart   DateTime?                       // When grace period started
+  gracePeriodEnd     DateTime?                       // When grace period expired
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  // Evidence & Snapshots
+  snapshotUrl        String?                         // S3 URL with annotated snapshot
+  snapshotMetadata   Json?                           // {person_bbox: [...], ppe_bboxes: {...}}
+
+  // Resolution Tracking
+  resolvedAt         DateTime?
+  resolvedBy         String?
+  resolutionNotes    String?
+  acknowledgedAt     DateTime?
+  acknowledgedBy     String?
+
+  // Relationships
+  site               Site       @relation(fields: [siteId], references: [id])
+  camera             Camera?    @relation(fields: [cameraId], references: [id], onDelete: SetNull)
+  personnel          Personnel? @relation(fields: [personnelId], references: [id], onDelete: SetNull)
+
+  @@map("ppe_violations")
+  @@index([siteId, status, detectionTimestamp])
+  @@index([personName, detectionTimestamp])
+  @@index([personnelId, detectionTimestamp])
+  @@index([cameraId, detectionTimestamp])
+  @@index([currentState, status])
 }
 
 

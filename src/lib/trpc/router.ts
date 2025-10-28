@@ -165,6 +165,84 @@ export const appRouter = router({
       return await storage.resolveViolation(input.id, input.resolvedBy);
     }),
 
+  // PPE Violations
+  getPPEViolationsBySite: publicProcedure
+    .input(z.string())
+    .query(async ({ input }) => {
+      return await storage.getPPEViolationsBySite(input);
+    }),
+
+  getActivePPEViolationsBySite: publicProcedure
+    .input(z.string())
+    .query(async ({ input }) => {
+      return await storage.getActivePPEViolationsBySite(input);
+    }),
+
+  getPPEViolation: publicProcedure
+    .input(z.string())
+    .query(async ({ input }) => {
+      return await storage.getPPEViolation(input);
+    }),
+
+  createPPEViolation: publicProcedure
+    .input(
+      z.object({
+        personName: z.string(),
+        personnelId: z.string().optional(),
+        confidenceScore: z.number().optional(),
+        siteId: z.string(),
+        cameraId: z.string().optional(),
+        cameraName: z.string(),
+        location: z.string().optional(),
+        previousState: z.string(),
+        currentState: z.string(),
+        ppeWearing: z.array(z.string()),
+        ppeMissing: z.array(z.string()),
+        ppeRequired: z.array(z.string()),
+        violationReason: z.string(),
+        severity: z.string().optional(),
+        detectionTimestamp: z.string().or(z.date()),
+        snapshotUrl: z.string().optional(),
+        snapshotMetadata: z.any().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return await storage.createPPEViolation({
+        ...input,
+        detectionTimestamp: new Date(input.detectionTimestamp),
+      });
+    }),
+
+  resolvePPEViolation: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        resolvedBy: z.string(),
+        resolutionNotes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return await storage.resolvePPEViolation(
+        input.id,
+        input.resolvedBy,
+        input.resolutionNotes
+      );
+    }),
+
+  acknowledgePPEViolation: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        acknowledgedBy: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return await storage.acknowledgePPEViolation(
+        input.id,
+        input.acknowledgedBy
+      );
+    }),
+
   // Incidents
   getIncidentsBySite: publicProcedure
     .input(z.string())
