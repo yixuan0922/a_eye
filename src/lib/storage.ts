@@ -162,6 +162,25 @@ export class Storage {
     });
   }
 
+  async updatePersonnel(
+    id: string,
+    data: {
+      name?: string;
+      role?: string;
+      position?: string;
+      department?: string;
+      accessLevel?: string;
+    }
+  ): Promise<Personnel> {
+    return await db.personnel.update({
+      where: { id },
+      data: {
+        ...data,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
   async deletePersonnel(id: string): Promise<void> {
     const personnel = await db.personnel.findUnique({
       where: { id },
@@ -450,8 +469,8 @@ export class Storage {
       throw new Error("Site not found");
     }
 
-    // Use slug in the URL, not siteId
-    const signupUrl = `${process.env.NEXT_PUBLIC_APP_URL}/${site.id}/signup`;
+    // Use site code in the URL, not siteId
+    const signupUrl = `${process.env.NEXT_PUBLIC_APP_URL}/${site.code}/signup`;
     const qrCodeDataUrl = await QRCode.toDataURL(signupUrl);
 
     await storage.updateSiteQRCode(siteId, qrCodeDataUrl);

@@ -6,8 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Check, X, MoreVertical, Search } from "lucide-react";
+import { UserPlus, Check, X, MoreVertical, Search, Edit } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
+import { PersonnelEditDialog } from "./personnel-edit-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface PersonnelManagementProps {
   siteId: string;
@@ -22,6 +29,8 @@ export default function PersonnelManagement({
   const [filter, setFilter] = useState<FilterType>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter] = useState("all");
+  const [editingPersonnel, setEditingPersonnel] = useState<any | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const {
     data: personnel,
@@ -77,6 +86,11 @@ export default function PersonnelManagement({
       isAuthorized: approve,
       authorizedBy: "admin", // You can replace this with actual user info later
     });
+  };
+
+  const handleEdit = (person: any) => {
+    setEditingPersonnel(person);
+    setIsEditDialogOpen(true);
   };
 
   const filteredPersonnel = personnel?.filter((person: any) => {
@@ -248,9 +262,19 @@ export default function PersonnelManagement({
                   </div>
                 )}
 
-                <Button size="sm" variant="outline">
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleEdit(person)}>
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit Profile
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </Card>
@@ -276,6 +300,17 @@ export default function PersonnelManagement({
           </Button>
         </div>
       )}
+
+      {/* Edit Dialog */}
+      <PersonnelEditDialog
+        personnel={editingPersonnel}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onSuccess={() => {
+          refetch();
+          setEditingPersonnel(null);
+        }}
+      />
     </div>
   );
 }

@@ -64,6 +64,14 @@ export default function Dashboard() {
     }
   );
 
+  const { data: ppeViolations } = trpc.getActivePPEViolationsBySite.useQuery(
+    siteData?.id || "",
+    {
+      enabled: !!siteData?.id,
+      refetchInterval: 5000, // Refresh every 5 seconds for live monitoring
+    }
+  );
+
   const handleLogout = () => {
     toast({
       title: "Logged out",
@@ -104,10 +112,14 @@ export default function Dashboard() {
     );
   }
 
+  // Filter out low severity violations
+  const filteredViolations = violations?.filter((v) => v.severity !== "low") || [];
+  const filteredPPEViolations = ppeViolations?.filter((v) => v.severity !== "low") || [];
+
   const stats = {
     cameras: cameras?.length || 0,
     personnel: personnel?.length || 0,
-    violations: violations?.length || 0,
+    violations: filteredViolations.length + filteredPPEViolations.length,
     activeCameras: cameras?.filter((c) => c.status === "online").length || 0,
   };
 
@@ -156,7 +168,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger value="cameras" className="flex items-center gap-2">
               <Camera className="w-4 h-4" />
-              Cameras ({stats.cameras})
+              Cameras
             </TabsTrigger>
             <TabsTrigger value="personnel" className="flex items-center gap-2">
               <Users className="w-4 h-4" />

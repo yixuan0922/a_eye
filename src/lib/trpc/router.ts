@@ -85,6 +85,22 @@ export const appRouter = router({
       );
     }),
 
+  updatePersonnel: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        role: z.string().optional(),
+        position: z.string().optional(),
+        department: z.string().optional(),
+        accessLevel: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { id, ...data } = input;
+      return await storage.updatePersonnel(id, data);
+    }),
+
   deletePersonnel: publicProcedure
     .input(z.string())
     .mutation(async ({ input }) => {

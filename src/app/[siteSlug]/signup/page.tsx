@@ -89,15 +89,15 @@ export default function Signup() {
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
+
     // Validate each file
     const validFiles: File[] = [];
     for (const file of files) {
-      if (file.size > 5 * 1024 * 1024) {
-        // 5MB limit per file
+      if (file.size > 10 * 1024 * 1024) {
+        // 10MB limit per file
         toast({
           title: "File Too Large",
-          description: `${file.name} must be less than 5MB`,
+          description: `${file.name} must be less than 10MB`,
           variant: "destructive",
         });
         continue;
@@ -237,7 +237,7 @@ export default function Signup() {
                         ? `${photos.length} photo${photos.length > 1 ? 's' : ''} selected`
                         : "Click to upload photos"}
                     </p>
-                    <p className="text-xs text-gray-500">PNG, JPG (MAX. 5MB each, 5 photos max)</p>
+                    <p className="text-xs text-gray-500">PNG, JPG (MAX. 10MB each, 5 photos max)</p>
                   </div>
                   <input
                     id="photos"

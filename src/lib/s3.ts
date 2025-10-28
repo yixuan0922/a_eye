@@ -126,6 +126,31 @@ export class S3Service {
   }
 
   /**
+   * Convert S3 protocol URL (s3://bucket/key) to HTTPS URL
+   * Can be used on both client and server side
+   */
+  static convertS3UrlToHttps(s3Url: string, region: string = 'ap-southeast-1'): string {
+    // If already an HTTPS URL, return as is
+    if (s3Url.startsWith('http://') || s3Url.startsWith('https://')) {
+      return s3Url;
+    }
+
+    // Parse s3://bucket/key format
+    if (s3Url.startsWith('s3://')) {
+      const withoutProtocol = s3Url.replace('s3://', '');
+      const parts = withoutProtocol.split('/');
+      const bucket = parts[0];
+      const key = parts.slice(1).join('/');
+
+      // Return HTTPS URL
+      return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+    }
+
+    // If format is unrecognized, return original
+    return s3Url;
+  }
+
+  /**
    * Upload multiple files to S3 for personnel photos
    */
   static async uploadMultiplePersonnelPhotos(
@@ -175,4 +200,31 @@ export class S3Service {
 }
 
 export default S3Service;
+
+/**
+ * Client-side utility to convert S3 URLs
+ * This can be imported in client components without bundling AWS SDK
+ */
+export function convertS3UrlToHttps(s3Url: string | null | undefined, region: string = 'ap-southeast-1'): string | null {
+  if (!s3Url) return null;
+
+  // If already an HTTPS URL, return as is
+  if (s3Url.startsWith('http://') || s3Url.startsWith('https://')) {
+    return s3Url;
+  }
+
+  // Parse s3://bucket/key format
+  if (s3Url.startsWith('s3://')) {
+    const withoutProtocol = s3Url.replace('s3://', '');
+    const parts = withoutProtocol.split('/');
+    const bucket = parts[0];
+    const key = parts.slice(1).join('/');
+
+    // Return HTTPS URL
+    return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+  }
+
+  // If format is unrecognized, return original
+  return s3Url;
+}
  

@@ -35,6 +35,8 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
     trpc.getPersonnelBySite.useQuery(siteId);
   const { data: violations, isLoading: violationsLoading } =
     trpc.getActiveViolationsBySite.useQuery(siteId);
+  const { data: ppeViolations, isLoading: ppeViolationsLoading } =
+    trpc.getActivePPEViolationsBySite.useQuery(siteId);
   const { data: incidents, isLoading: incidentsLoading } =
     trpc.getIncidentsBySite.useQuery(siteId);
 
@@ -58,6 +60,7 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
     camerasLoading ||
     personnelLoading ||
     violationsLoading ||
+    ppeViolationsLoading ||
     incidentsLoading
   ) {
     return (
@@ -77,6 +80,10 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
     );
   }
 
+  // Filter out low severity violations
+  const filteredViolations = violations?.filter((v: any) => v.severity !== "low") || [];
+  const filteredPPEViolations = ppeViolations?.filter((v: any) => v.severity !== "low") || [];
+
   const stats = {
     totalPersonnel: personnel?.length || 0,
     pendingApprovals:
@@ -86,7 +93,9 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
     totalCameras: cameras?.length || 0,
     activeCameras: cameras?.filter((c: any) => c.status === "online").length || 0,
     offlineCameras: cameras?.filter((c: any) => c.status === "offline").length || 0,
-    activeViolations: violations?.length || 0,
+    activeViolations: filteredViolations.length + filteredPPEViolations.length,
+    ppeViolationsCount: filteredPPEViolations.length,
+    unauthorizedAccessCount: filteredViolations.length,
     totalIncidents: incidents?.length || 0,
     recentIncidents:
       incidents?.filter((i: any) => {
@@ -113,9 +122,14 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            {stats.activeViolations} active PPE violation
-            {stats.activeViolations !== 1 ? "s" : ""} detected. Immediate
-            attention required.
+            {stats.activeViolations} active safety violation
+            {stats.activeViolations !== 1 ? "s" : ""} detected
+            {stats.ppeViolationsCount > 0 && stats.unauthorizedAccessCount > 0
+              ? ` (${stats.ppeViolationsCount} PPE, ${stats.unauthorizedAccessCount} Unauthorized Access)`
+              : stats.ppeViolationsCount > 0
+              ? ` (PPE violations)`
+              : ` (Unauthorized Access)`}
+            . Immediate attention required.
           </AlertDescription>
         </Alert>
       )}
@@ -164,7 +178,7 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              PPE Violations
+              Safety Violations
             </CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -172,7 +186,11 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
             <div className="text-2xl font-bold text-violation-red">
               {stats.activeViolations}
             </div>
-            <p className="text-xs text-muted-foreground">Active violations</p>
+            <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+              <span>{stats.ppeViolationsCount} PPE</span>
+              <span>•</span>
+              <span>{stats.unauthorizedAccessCount} Unauthorized</span>
+            </div>
           </CardContent>
         </Card>
 
