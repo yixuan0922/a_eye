@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Check, X, MoreVertical, Search, Edit } from "lucide-react";
+import { UserPlus, Check, X, MoreVertical, Search, Edit, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import { PersonnelEditDialog } from "./personnel-edit-dialog";
 import {
@@ -14,7 +14,18 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface PersonnelManagementProps {
   siteId: string;
@@ -31,6 +42,8 @@ export default function PersonnelManagement({
   const [roleFilter] = useState("all");
   const [editingPersonnel, setEditingPersonnel] = useState<any | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [deletingPersonnel, setDeletingPersonnel] = useState<any | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const {
     data: personnel,
@@ -50,6 +63,25 @@ export default function PersonnelManagement({
       toast({
         title: "Update Failed",
         description: error.message || "Failed to update personnel status.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deletePersonnelMutation = trpc.deletePersonnel.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Personnel Deleted",
+        description: "Personnel and all related data have been deleted successfully.",
+      });
+      refetch(); // Refresh the data after deletion
+      setIsDeleteDialogOpen(false);
+      setDeletingPersonnel(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Deletion Failed",
+        description: error.message || "Failed to delete personnel.",
         variant: "destructive",
       });
     },
@@ -91,6 +123,17 @@ export default function PersonnelManagement({
   const handleEdit = (person: any) => {
     setEditingPersonnel(person);
     setIsEditDialogOpen(true);
+  };
+
+  const handleDelete = (person: any) => {
+    setDeletingPersonnel(person);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (deletingPersonnel) {
+      deletePersonnelMutation.mutate(deletingPersonnel.id);
+    }
   };
 
   const filteredPersonnel = personnel?.filter((person: any) => {
@@ -273,6 +316,14 @@ export default function PersonnelManagement({
                       <Edit className="w-4 h-4 mr-2" />
                       Edit Profile
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleDelete(person)}
+                      className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Personnel
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -311,6 +362,38 @@ export default function PersonnelManagement({
           setEditingPersonnel(null);
         }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Personnel</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{" "}
+              <strong>{deletingPersonnel?.name}</strong>? This action cannot be
+              undone and will permanently delete:
+              <ul className="mt-2 ml-4 list-disc text-sm">
+                <li>Personnel profile and all photos from S3</li>
+                <li>Face data from the face recognition system (Jetson)</li>
+                <li>All attendance records</li>
+                <li>Associated violations (will be unlinked)</li>
+                <li>PPE violation records (will be unlinked)</li>
+                <li>Unauthorized access records (will be unlinked)</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deletePersonnelMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deletePersonnelMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

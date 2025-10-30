@@ -107,7 +107,7 @@ model Violation {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   camera      Camera?    @relation(fields: [cameraId], references: [id])
-  personnel   Personnel? @relation(fields: [personnelId], references: [id])
+  personnel   Personnel? @relation(fields: [personnelId], references: [id], onDelete: SetNull)
   site        Site       @relation(fields: [siteId], references: [id])
 
   @@map("violations")
@@ -169,7 +169,7 @@ model PPEViolation {
   acknowledgedAt     DateTime?
   acknowledgedBy     String?
   camera             Camera?    @relation(fields: [cameraId], references: [id])
-  personnel          Personnel? @relation(fields: [personnelId], references: [id])
+  personnel          Personnel? @relation(fields: [personnelId], references: [id], onDelete: SetNull)
   site               Site       @relation(fields: [siteId], references: [id])
 
   @@index([siteId, status, detectionTimestamp])
@@ -209,7 +209,7 @@ model UnauthorizedAccess {
   // Person Information (if later identified)
   identifiedPersonName    String?
   identifiedPersonnelId   String?
-  identifiedPersonnel     Personnel? @relation(fields: [identifiedPersonnelId], references: [id])
+  identifiedPersonnel     Personnel? @relation(fields: [identifiedPersonnelId], references: [id], onDelete: SetNull)
   // Timestamps
   createdAt               DateTime   @default(now())
   updatedAt               DateTime   @updatedAt

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { S3Service } from "@/lib/s3"
 
 export async function PATCH(
   request: NextRequest,
@@ -41,7 +42,7 @@ export async function DELETE(
   try {
     const { id } = params
 
-    // Get personnel to access photos
+    // Get personnel to access photos and info
     const personnel = await prisma.personnel.findUnique({
       where: { id },
     })
@@ -53,13 +54,47 @@ export async function DELETE(
       )
     }
 
+    // Delete face from Flask face recognition API
+    try {
+      const flaskUrl = process.env.FLASK_API_URL || "https://aeye001.biofuel.osiris.sg"
+      const response = await fetch(`${flaskUrl}/api/delete_face`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          personnelId: id,
+          name: personnel.name,
+        }),
+      })
+
+      if (response.ok) {
+        console.log(`Successfully deleted face from Flask API for personnel ${id}`)
+      } else {
+        const errorText = await response.text()
+        console.error(`Flask API delete_face failed: ${response.status} - ${errorText}`)
+      }
+    } catch (flaskError) {
+      console.error("Error calling Flask API delete_face:", flaskError)
+      // Continue with deletion even if Flask API fails
+    }
+
+    // Delete all photos from S3
+    if (personnel.photos && Array.isArray(personnel.photos) && personnel.photos.length > 0) {
+      try {
+        const photoUrls = personnel.photos.filter((p): p is string => typeof p === 'string')
+        await S3Service.deleteMultipleFiles(photoUrls)
+        console.log(`Deleted ${photoUrls.length} photos from S3`)
+      } catch (s3Error) {
+        console.error("Error deleting photos from S3:", s3Error)
+        // Continue with deletion even if S3 deletion fails
+      }
+    }
+
     // Delete from database
     await prisma.personnel.delete({
       where: { id },
     })
-
-    // Note: S3 photo deletion is handled by the deletePersonnel function in storage.ts
-    // which is called from tRPC, but we can also add it here for REST API consistency
 
     return NextResponse.json({ success: true })
   } catch (error) {

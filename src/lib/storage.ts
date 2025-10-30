@@ -186,18 +186,48 @@ export class Storage {
       where: { id },
     });
 
-    if (personnel?.photos && Array.isArray(personnel.photos) && personnel.photos.length > 0) {
+    if (!personnel) {
+      throw new Error("Personnel not found");
+    }
+
+    // Delete face from Flask face recognition API
+    try {
+      const flaskUrl = process.env.FLASK_API_URL || "https://aeye001.biofuel.osiris.sg";
+      const response = await fetch(`${flaskUrl}/api/delete_face`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          personnelId: id,
+          name: personnel.name,
+        }),
+      });
+
+      if (response.ok) {
+        console.log(`Successfully deleted face from Flask API for personnel ${id}`);
+      } else {
+        const errorText = await response.text();
+        console.error(`Flask API delete_face failed: ${response.status} - ${errorText}`);
+      }
+    } catch (error) {
+      console.error("Error calling Flask API delete_face:", error);
+      // Continue with deletion even if Flask API fails
+    }
+
+    // Delete all photos from S3
+    if (personnel.photos && Array.isArray(personnel.photos) && personnel.photos.length > 0) {
       try {
-        // Delete all photos from S3
         const photoUrls = personnel.photos.filter((p): p is string => typeof p === 'string');
         await S3Service.deleteMultipleFiles(photoUrls);
         console.log(`Deleted ${photoUrls.length} photos from S3`);
       } catch (error) {
-        console.error("Error deleting photo from S3:", error);
+        console.error("Error deleting photos from S3:", error);
         // Continue with personnel deletion even if S3 deletion fails
       }
     }
 
+    // Delete personnel from database
     await db.personnel.delete({
       where: { id },
     });
