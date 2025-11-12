@@ -1,5 +1,8 @@
 FROM node:20-alpine AS base
 
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl
+
 # Install dependencies only when needed
 FROM base AS deps
 WORKDIR /app
@@ -8,7 +11,10 @@ WORKDIR /app
 COPY package*.json ./
 COPY pnpm-lock.yaml* ./
 
-# Install dependencies
+# Copy prisma schema (needed for postinstall script)
+COPY prisma ./prisma
+
+# Install dependencies (this will run postinstall which needs prisma schema)
 RUN npm install
 
 # Rebuild the source code only when needed

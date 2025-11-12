@@ -7,18 +7,28 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "prisma:generate": "prisma generate --schema=../../shared/schema.prisma"
+    "postinstall": "prisma generate --schema=./shared/schema.prisma",
+    "prisma:generate": "prisma generate --schema=./shared/schema.prisma"
+  },
+  "prisma": {
+    "schema": "./shared/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^5.7.0",
+    "@aws-sdk/client-s3": "^3.470.0",
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "multer": "^1.4.5-lts.1",
+    "form-data": "^4.0.0",
+    "node-fetch": "^2.7.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/cors": "^2.8.17",
     "@types/node": "^20.10.0",
+    "@types/multer": "^1.4.11",
+    "@types/node-fetch": "^2.6.9",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
     "prisma": "^5.7.0"

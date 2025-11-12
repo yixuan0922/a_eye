@@ -29,13 +29,10 @@ services:
     container_name: a_eye_violations
     environment:
       PORT: 3001
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/a_eye
+      DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: development
     ports:
       - "3001:3001"
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - a_eye_network
     restart: unless-stopped
@@ -48,13 +45,10 @@ services:
     container_name: a_eye_unauthorized
     environment:
       PORT: 3002
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/a_eye
+      DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: development
     ports:
       - "3002:3002"
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - a_eye_network
     restart: unless-stopped
@@ -67,7 +61,7 @@ services:
     container_name: a_eye_personnel
     environment:
       PORT: 3003
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/a_eye
+      DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: development
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
@@ -75,9 +69,6 @@ services:
       FLASK_API_URL: https://aeye001.biofuel.osiris.sg
     ports:
       - "3003:3003"
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - a_eye_network
     restart: unless-stopped
@@ -90,13 +81,10 @@ services:
     container_name: a_eye_camera
     environment:
       PORT: 3004
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/a_eye
+      DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: development
     ports:
       - "3004:3004"
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - a_eye_network
     restart: unless-stopped
@@ -109,13 +97,10 @@ services:
     container_name: a_eye_attendance
     environment:
       PORT: 3005
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/a_eye
+      DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: development
     ports:
       - "3005:3005"
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - a_eye_network
     restart: unless-stopped
@@ -128,13 +113,10 @@ services:
     container_name: a_eye_site
     environment:
       PORT: 3006
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/a_eye
+      DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: development
     ports:
       - "3006:3006"
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - a_eye_network
     restart: unless-stopped
@@ -157,40 +139,30 @@ services:
       SITE_SERVICE_URL: http://site-service:3006
     ports:
       - "4000:4000"
-    depends_on:
-      - violations-service
-      - unauthorized-service
-      - personnel-service
-      - camera-service
-      - attendance-service
-      - site-service
     networks:
       - a_eye_network
     restart: unless-stopped
 
-  # Frontend (Next.js)
+  # Frontend
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
     container_name: a_eye_frontend
     environment:
+      NODE_ENV: production
       NEXT_PUBLIC_API_URL: http://localhost:4000
-      NODE_ENV: development
     ports:
       - "3000:3000"
-    depends_on:
-      - api-gateway
     networks:
       - a_eye_network
     restart: unless-stopped
-    volumes:
-      - ./src:/app/src
-      - /app/node_modules
 
+# Networks
 networks:
   a_eye_network:
     driver: bridge
 
+# Volumes
 volumes:
   postgres_data:

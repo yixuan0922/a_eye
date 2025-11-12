@@ -7,7 +7,11 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "prisma:generate": "prisma generate --schema=../../shared/schema.prisma"
+    "postinstall": "prisma generate --schema=./shared/schema.prisma",
+    "prisma:generate": "prisma generate --schema=./shared/schema.prisma"
+  },
+  "prisma": {
+    "schema": "./shared/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^5.7.0",
