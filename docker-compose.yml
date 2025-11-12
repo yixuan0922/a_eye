@@ -1,0 +1,196 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: a_eye_postgres
+    environment:
+      POSTGRES_DB: a_eye
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - a_eye_network
+
+  # Violations Service
+  violations-service:
+    build:
+      context: .
+      dockerfile: services/violations-service/Dockerfile
+    container_name: a_eye_violations
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/a_eye
+      NODE_ENV: development
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - a_eye_network
+    restart: unless-stopped
+
+  # Unauthorized Access Service
+  unauthorized-service:
+    build:
+      context: .
+      dockerfile: services/unauthorized-service/Dockerfile
+    container_name: a_eye_unauthorized
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/a_eye
+      NODE_ENV: development
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - a_eye_network
+    restart: unless-stopped
+
+  # Personnel Service
+  personnel-service:
+    build:
+      context: .
+      dockerfile: services/personnel-service/Dockerfile
+    container_name: a_eye_personnel
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/a_eye
+      NODE_ENV: development
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      FLASK_API_URL: https://aeye001.biofuel.osiris.sg
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - a_eye_network
+    restart: unless-stopped
+
+  # Camera Service
+  camera-service:
+    build:
+      context: .
+      dockerfile: services/camera-service/Dockerfile
+    container_name: a_eye_camera
+    environment:
+      PORT: 3004
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/a_eye
+      NODE_ENV: development
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - a_eye_network
+    restart: unless-stopped
+
+  # Attendance Service
+  attendance-service:
+    build:
+      context: .
+      dockerfile: services/attendance-service/Dockerfile
+    container_name: a_eye_attendance
+    environment:
+      PORT: 3005
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/a_eye
+      NODE_ENV: development
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - a_eye_network
+    restart: unless-stopped
+
+  # Site Service
+  site-service:
+    build:
+      context: .
+      dockerfile: services/site-service/Dockerfile
+    container_name: a_eye_site
+    environment:
+      PORT: 3006
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/a_eye
+      NODE_ENV: development
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - a_eye_network
+    restart: unless-stopped
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: a_eye_api_gateway
+    environment:
+      PORT: 4000
+      NODE_ENV: development
+      # Service URLs
+      VIOLATIONS_SERVICE_URL: http://violations-service:3001
+      UNAUTHORIZED_SERVICE_URL: http://unauthorized-service:3002
+      PERSONNEL_SERVICE_URL: http://personnel-service:3003
+      CAMERA_SERVICE_URL: http://camera-service:3004
+      ATTENDANCE_SERVICE_URL: http://attendance-service:3005
+      SITE_SERVICE_URL: http://site-service:3006
+    ports:
+      - "4000:4000"
+    depends_on:
+      - violations-service
+      - unauthorized-service
+      - personnel-service
+      - camera-service
+      - attendance-service
+      - site-service
+    networks:
+      - a_eye_network
+    restart: unless-stopped
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: a_eye_frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+    networks:
+      - a_eye_network
+    restart: unless-stopped
+    volumes:
+      - ./src:/app/src
+      - /app/node_modules
+
+networks:
+  a_eye_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
