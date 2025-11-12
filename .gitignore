@@ -137,3 +137,23 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Terraform files
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform/terraform.tfvars.example
+.terraform/
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Docker volumes
+postgres_data/
+
+# Prisma
+prisma/migrations/
+!prisma/migrations/.gitkeep

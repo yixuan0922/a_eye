@@ -7,7 +7,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // Initialize S3 client
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
+  region: process.env.AWS_REGION || "ap-southeast-1",
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -47,7 +47,7 @@ export class S3Service {
 
       // Return the public URL
       const url = `https://${BUCKET_NAME}.s3.${
-        process.env.AWS_REGION || "us-east-1"
+        process.env.AWS_REGION || "ap-southeast-1"
       }.amazonaws.com/${key}`;
       console.log("Generated S3 URL:", url);
       return url;
