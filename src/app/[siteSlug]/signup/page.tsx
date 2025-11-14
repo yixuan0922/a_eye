@@ -49,10 +49,26 @@ export default function Signup() {
         body: formData,
       });
       if (!response.ok) {
-        const error = await response.json();
+        let error;
+        try {
+          error = await response.json();
+        } catch (parseError) {
+          // If response is not JSON, get text
+          const errorText = await response.text();
+          console.error("Non-JSON error response:", errorText);
+          throw new Error(`Server error: ${response.status} - ${errorText.substring(0, 100)}`);
+        }
         throw new Error(error.message || "Signup failed");
       }
-      return response.json();
+
+      // Parse successful response
+      try {
+        return await response.json();
+      } catch (parseError) {
+        const responseText = await response.text();
+        console.error("Failed to parse success response:", responseText);
+        throw new Error("Invalid response from server");
+      }
     },
     onSuccess: () => {
       toast({

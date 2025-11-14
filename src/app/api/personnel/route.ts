@@ -29,18 +29,46 @@ async function addFacesToFlask(
       }
     );
 
-    if (!response.ok && response.status !== 207) {
-      const errorData = await response.json();
-      console.error("Flask add_faces error:", errorData);
+    // Read response body once
+    const contentType = response.headers.get("content-type");
+    let responseBody;
+
+    if (contentType && contentType.includes("application/json")) {
+      try {
+        responseBody = await response.json();
+      } catch (parseError) {
+        const errorText = await response.text();
+        console.error("Flask add_faces JSON parse error:", errorText);
+        return {
+          added: 0,
+          failed: photoFiles.length,
+          results: [],
+          errors: [{ error: "Invalid JSON response", statusCode: response.status, response: errorText }],
+        };
+      }
+    } else {
+      // Not JSON, read as text
+      const errorText = await response.text();
+      console.error("Flask add_faces non-JSON response:", errorText);
       return {
         added: 0,
         failed: photoFiles.length,
         results: [],
-        errors: [errorData],
+        errors: [{ error: "Non-JSON response from Flask API", statusCode: response.status, response: errorText }],
       };
     }
 
-    const result = await response.json();
+    if (!response.ok && response.status !== 207) {
+      console.error("Flask add_faces error:", responseBody);
+      return {
+        added: 0,
+        failed: photoFiles.length,
+        results: [],
+        errors: [responseBody],
+      };
+    }
+
+    const result = responseBody;
     console.log(
       `Flask add_faces: ${result.added} added, ${result.failed} failed`
     );
