@@ -84,11 +84,10 @@ export function ModelViewer({
 
           {/* Camera Controls (optional, can be disabled) */}
           <OrbitControls
-            enableZoom={true}
+            enableZoom={false}
             enablePan={true}
+            enableRotate={true}
             autoRotate={false}
-            minPolarAngle={Math.PI / 2.5}
-            maxPolarAngle={Math.PI / 2.5}
           />
         </Suspense>
       </Canvas>
