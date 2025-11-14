@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI CCTV - Smart Construction Site Security",
+  title: "A EYE- Smart Construction Site Security",
   description: "AI-powered CCTV monitoring system for construction sites",
 };
 
