@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sendBulkTelegramNotification, formatPPEViolationMessage } from "@/lib/telegram";
 
 export async function POST(request: NextRequest) {
   try {
@@ -127,6 +128,32 @@ export async function POST(request: NextRequest) {
         snapshotMetadata: snapshotMetadata || null,
       },
     });
+
+    // Send Telegram notification to admin users
+    // TODO: Replace with actual logic to get admin users for this site
+    // For now, you'll need to manually add user IDs who should receive notifications
+    const adminUserIds: string[] = []; // Add your user IDs here, e.g., ['user123', 'user456']
+
+    if (adminUserIds.length > 0) {
+      const message = formatPPEViolationMessage({
+        personName: ppeViolation.personName,
+        location: ppeViolation.location || undefined,
+        cameraName: ppeViolation.cameraName,
+        ppeMissing: ppeViolation.ppeMissing,
+        severity: ppeViolation.severity,
+        detectionTimestamp: ppeViolation.detectionTimestamp,
+      });
+
+      // Send notification without blocking the response
+      sendBulkTelegramNotification({
+        userIds: adminUserIds,
+        message,
+        type: 'ppe_violation'
+      }).catch(error => {
+        console.error('Failed to send Telegram notification:', error);
+        // Don't fail the request if notification fails
+      });
+    }
 
     return NextResponse.json({
       success: true,

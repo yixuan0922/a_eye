@@ -19,6 +19,15 @@ export default function Login() {
 
   const loginMutation = trpc.login.useMutation({
     onSuccess: (data) => {
+      // Store user session in localStorage
+      localStorage.setItem('currentUser', JSON.stringify({
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.name,
+        siteId: data.site.id,
+        siteCode: data.site.code,
+      }));
+
       toast({
         title: "Login Successful",
         description: `Welcome to ${data.site.name}`,

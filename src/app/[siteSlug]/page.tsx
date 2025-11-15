@@ -73,6 +73,9 @@ export default function Dashboard() {
   );
 
   const handleLogout = () => {
+    // Clear user session from localStorage
+    localStorage.removeItem('currentUser');
+
     toast({
       title: "Logged out",
       description: "You have been logged out successfully",

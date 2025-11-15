@@ -22,13 +22,19 @@ import {
   QrCode,
   Bell,
   Download,
+  MessageCircle,
 } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
 
 interface OverviewStatsProps {
   siteId: string;
 }
 
 export default function OverviewStats({ siteId }: OverviewStatsProps) {
+  const params = useParams();
+  const router = useRouter();
+  const siteSlug = params?.siteSlug as string;
+
   const { data: cameras, isLoading: camerasLoading } =
     trpc.getCamerasBySite.useQuery(siteId);
   const { data: personnel, isLoading: personnelLoading } =
@@ -316,6 +322,14 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
             <Button className="p-4 h-auto bg-gray-600 hover:bg-gray-700 text-white flex flex-col items-center">
               <Download className="text-2xl mb-2" />
               <span className="text-sm font-medium">Export Report</span>
+            </Button>
+
+            <Button
+              className="p-4 h-auto bg-purple-600 hover:bg-purple-700 text-white flex flex-col items-center"
+              onClick={() => router.push(`/${siteSlug}/settings`)}
+            >
+              <MessageCircle className="text-2xl mb-2" />
+              <span className="text-sm font-medium">Telegram Setup</span>
             </Button>
           </div>
 
