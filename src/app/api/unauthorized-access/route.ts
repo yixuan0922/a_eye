@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sendBulkTelegramNotification, formatUnauthorizedAccessMessage } from "@/lib/telegram";
 
 export async function POST(request: NextRequest) {
   try {
@@ -103,6 +104,31 @@ export async function POST(request: NextRequest) {
     console.log(
       `✅ Unauthorized access alert created: Track-${trackId} at ${cameraName}`
     );
+
+    // Send Telegram notification to admin users (URGENT - unauthorized access)
+    // TODO: Replace with actual logic to get admin/security users for this site
+    const adminUserIds: string[] = []; // Add your user IDs here, e.g., ['user123', 'user456']
+
+    if (adminUserIds.length > 0) {
+      const message = formatUnauthorizedAccessMessage({
+        trackId: unauthorizedAccess.trackId,
+        location: unauthorizedAccess.location,
+        cameraName: unauthorizedAccess.cameraName,
+        durationSeconds: unauthorizedAccess.durationSeconds,
+        detectionTimestamp: unauthorizedAccess.detectionTimestamp,
+        severity: unauthorizedAccess.severity,
+      });
+
+      // Send notification without blocking the response
+      sendBulkTelegramNotification({
+        userIds: adminUserIds,
+        message,
+        type: 'unauthorized'
+      }).catch(error => {
+        console.error('Failed to send Telegram notification:', error);
+        // Don't fail the request if notification fails
+      });
+    }
 
     return NextResponse.json(
       {
