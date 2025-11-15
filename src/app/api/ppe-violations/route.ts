@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
       // Send notification without blocking the response
       // Convert S3 URL to HTTPS if present
       const imageUrl = ppeViolation.snapshotUrl
-        ? convertS3UrlToHttps(ppeViolation.snapshotUrl)
+        ? convertS3UrlToHttps(ppeViolation.snapshotUrl) ?? undefined
         : undefined;
 
       sendBulkTelegramNotification({

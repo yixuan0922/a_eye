@@ -332,6 +332,7 @@ export default function CameraGrid({ siteId }: CameraGridProps) {
                 }
                 displayMode={displayMode[camera.id] || "fit"}
                 personnel={personnel || []} // Pass personnel data
+                siteId={siteId} // Pass siteId for violation reporting
                 onFaceRecognitionUpdate={(data) => {
                   setFaceRecognition((prev) => ({
                     ...prev,
@@ -459,6 +460,7 @@ export default function CameraGrid({ siteId }: CameraGridProps) {
           faceApiLoaded={faceApiLoaded}
           faceRecognitionData={faceRecognition[expandedCamera]}
           personnel={personnel || []}
+          siteId={siteId}
           onClose={() => setExpandedCamera(null)}
         />
       )}
@@ -473,6 +475,7 @@ interface CameraFeedProps {
   faceRecognitionEnabled: boolean;
   displayMode: "fit" | "fill";
   personnel: any[]; // Personnel data from database
+  siteId: string; // Site ID for violation reporting
   onFaceRecognitionUpdate: (data: Partial<FaceRecognitionData>) => void;
 }
 
@@ -482,6 +485,7 @@ function CameraFeed({
   faceRecognitionEnabled,
   displayMode,
   personnel,
+  siteId,
   onFaceRecognitionUpdate,
 }: CameraFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -1111,6 +1115,7 @@ function ExpandedCameraView({
   faceApiLoaded,
   faceRecognitionData,
   personnel,
+  siteId,
   onClose,
 }: any) {
   if (!camera) return null;
@@ -1153,6 +1158,7 @@ function ExpandedCameraView({
                 faceRecognitionEnabled={faceRecognitionData?.isEnabled || false}
                 displayMode="fit"
                 personnel={personnel}
+                siteId={siteId}
                 onFaceRecognitionUpdate={() => {}} // No need to update in expanded view
               />
             </div>
