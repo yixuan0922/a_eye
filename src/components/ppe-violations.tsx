@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,29 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
   const [searchName, setSearchName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  // Check for recent violations and send Telegram notifications
+  useEffect(() => {
+    const checkRecentViolations = async () => {
+      try {
+        await fetch('/api/check-recent-violations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ siteId }),
+        });
+      } catch (error) {
+        console.error('Failed to check recent violations:', error);
+      }
+    };
+
+    // Check immediately on mount
+    checkRecentViolations();
+
+    // Then check every 5 seconds
+    const interval = setInterval(checkRecentViolations, 5000);
+
+    return () => clearInterval(interval);
+  }, [siteId]);
 
   // Fetch PPE violations from the PPEViolation table
   const { data: ppeViolations, isLoading: isPPELoading, refetch: refetchPPE } = trpc.getPPEViolationsBySite.useQuery(
