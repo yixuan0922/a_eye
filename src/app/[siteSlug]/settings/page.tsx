@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { TelegramLinkCard } from "@/components/telegram-link-card";
 import {
   Card,
@@ -10,6 +11,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 export default function SettingsPage({
   params,
@@ -17,6 +20,7 @@ export default function SettingsPage({
   params: { siteSlug: string };
 }) {
   const { siteSlug } = params;
+  const router = useRouter();
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -62,11 +66,20 @@ export default function SettingsPage({
 
   return (
     <div className="container mx-auto py-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage your account and notification preferences
-        </p>
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => router.push(`/${siteSlug}`)}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+          <p className="text-muted-foreground mt-2">
+            Manage your account and notification preferences
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue="notifications" className="space-y-6">
@@ -139,6 +152,12 @@ export default function SettingsPage({
                   Email
                 </p>
                 <p className="text-lg">{userEmail}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  User ID
+                </p>
+                <p className="text-lg font-mono text-xs">{userId}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">

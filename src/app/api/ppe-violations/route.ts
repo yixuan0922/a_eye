@@ -129,10 +129,23 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Send Telegram notification to admin users
-    // TODO: Replace with actual logic to get admin users for this site
-    // For now, you'll need to manually add user IDs who should receive notifications
-    const adminUserIds: string[] = []; // Add your user IDs here, e.g., ['user123', 'user456']
+    // Send Telegram notification to all users who have linked their Telegram accounts
+    // Fetch list of linked users from Telegram bot
+    let adminUserIds: string[] = [];
+
+    try {
+      const TELEGRAM_BOT_URL = process.env.TELEGRAM_BOT_URL || 'http://localhost:3001';
+      const usersResponse = await fetch(`${TELEGRAM_BOT_URL}/api/users`);
+
+      if (usersResponse.ok) {
+        const usersData = await usersResponse.json();
+        // Get all user IDs who have linked their Telegram accounts
+        adminUserIds = usersData.users?.map((u: any) => u.userId) || [];
+        console.log(`📱 Found ${adminUserIds.length} users with linked Telegram accounts`);
+      }
+    } catch (error) {
+      console.error('Failed to fetch linked Telegram users:', error);
+    }
 
     if (adminUserIds.length > 0) {
       const message = formatPPEViolationMessage({
@@ -148,7 +161,8 @@ export async function POST(request: NextRequest) {
       sendBulkTelegramNotification({
         userIds: adminUserIds,
         message,
-        type: 'ppe_violation'
+        type: 'ppe_violation',
+        imageUrl: ppeViolation.snapshotUrl || undefined
       }).catch(error => {
         console.error('Failed to send Telegram notification:', error);
         // Don't fail the request if notification fails
