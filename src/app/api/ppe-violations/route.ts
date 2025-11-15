@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendBulkTelegramNotification, formatPPEViolationMessage } from "@/lib/telegram";
+import { convertS3UrlToHttps } from "@/lib/s3";
 
 export async function POST(request: NextRequest) {
   try {
@@ -158,11 +159,16 @@ export async function POST(request: NextRequest) {
       });
 
       // Send notification without blocking the response
+      // Convert S3 URL to HTTPS if present
+      const imageUrl = ppeViolation.snapshotUrl
+        ? convertS3UrlToHttps(ppeViolation.snapshotUrl)
+        : undefined;
+
       sendBulkTelegramNotification({
         userIds: adminUserIds,
         message,
         type: 'ppe_violation',
-        imageUrl: ppeViolation.snapshotUrl || undefined
+        imageUrl
       }).catch(error => {
         console.error('Failed to send Telegram notification:', error);
         // Don't fail the request if notification fails

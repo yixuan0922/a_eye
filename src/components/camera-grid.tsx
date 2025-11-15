@@ -852,6 +852,40 @@ function CameraFeed({
                   (barWidth * confidence) / 100,
                   barHeight
                 );
+              } else {
+                // Unauthorized personnel detected - send violation to backend
+                // Use a ref to track if we've already sent this violation to avoid spam
+                const violationKey = `unauthorized-${camera.id}-${Date.now() - (Date.now() % 60000)}`; // Group by minute
+
+                if (!(window as any).recentViolations) {
+                  (window as any).recentViolations = new Set();
+                }
+
+                if (!(window as any).recentViolations.has(violationKey)) {
+                  (window as any).recentViolations.add(violationKey);
+
+                  // Clear old violations after 2 minutes
+                  setTimeout(() => {
+                    (window as any).recentViolations?.delete(violationKey);
+                  }, 120000);
+
+                  // Send unauthorized access violation to backend
+                  fetch('/api/unauthorized-access', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      personName: "Unknown Person",
+                      confidenceScore: confidence / 100,
+                      siteId: siteId,
+                      cameraId: camera.id,
+                      cameraName: camera.name,
+                      location: camera.location || "Unknown",
+                      accessLevel: "unauthorized",
+                      detectionTimestamp: new Date().toISOString(),
+                      snapshotUrl: null, // Can add snapshot capture later
+                    }),
+                  }).catch(err => console.error('Failed to send unauthorized access violation:', err));
+                }
               }
 
               // Draw corner indicators for better visibility
