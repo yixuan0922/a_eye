@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       try {
         // Convert S3 URL to HTTPS if present
         const imageUrl = violation.snapshotUrl
-          ? convertS3UrlToHttps(violation.snapshotUrl)
+          ? convertS3UrlToHttps(violation.snapshotUrl) ?? undefined
           : undefined;
 
         const result = await sendBulkTelegramNotification({
