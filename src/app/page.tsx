@@ -253,6 +253,7 @@ export default function Home() {
                   modelPath="/models/a_chinese_worker.glb"
                   autoRotate={true}
                   rotationSpeed={0.005}
+                  showObjectControls={false}
                   className="w-full h-full"
                 />
               </div>
