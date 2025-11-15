@@ -11,12 +11,14 @@ interface SendNotificationParams {
   userId: string;
   message: string;
   type?: NotificationType;
+  imageUrl?: string;
 }
 
 interface SendBulkNotificationParams {
   userIds: string[];
   message: string;
   type?: NotificationType;
+  imageUrl?: string;
 }
 
 /**
@@ -25,7 +27,8 @@ interface SendBulkNotificationParams {
 export async function sendTelegramNotification({
   userId,
   message,
-  type = 'violation'
+  type = 'violation',
+  imageUrl
 }: SendNotificationParams): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${TELEGRAM_BOT_URL}/api/send-notification`, {
@@ -36,7 +39,8 @@ export async function sendTelegramNotification({
       body: JSON.stringify({
         userId,
         message,
-        type
+        type,
+        imageUrl
       })
     });
 
@@ -61,7 +65,8 @@ export async function sendTelegramNotification({
 export async function sendBulkTelegramNotification({
   userIds,
   message,
-  type = 'violation'
+  type = 'violation',
+  imageUrl
 }: SendBulkNotificationParams): Promise<{ success: boolean; sent: number; failed: number }> {
   try {
     const response = await fetch(`${TELEGRAM_BOT_URL}/api/send-bulk-notification`, {
@@ -72,7 +77,8 @@ export async function sendBulkTelegramNotification({
       body: JSON.stringify({
         userIds,
         message,
-        type
+        type,
+        imageUrl
       })
     });
 
