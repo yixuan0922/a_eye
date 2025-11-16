@@ -473,7 +473,6 @@ export const appRouter = router({
         },
         include: {
           personnel: true,
-          camera: true,
         },
         orderBy: { timestamp: "desc" },
       });
@@ -484,7 +483,6 @@ export const appRouter = router({
       z.object({
         siteId: z.string(),
         personnelId: z.string(),
-        cameraId: z.string(),
         confidence: z.number(),
         timestamp: z.date().optional(),
       })
@@ -511,7 +509,6 @@ export const appRouter = router({
         data: {
           siteId: input.siteId,
           personnelId: input.personnelId,
-          cameraId: input.cameraId,
           confidence: input.confidence,
           timestamp: now,
         },
@@ -537,7 +534,6 @@ export const appRouter = router({
         },
         include: {
           personnel: true,
-          camera: true,
         },
         orderBy: { timestamp: "desc" },
       });
@@ -566,14 +562,11 @@ export const appRouter = router({
             firstSeen: record.timestamp,
             lastSeen: record.timestamp,
             totalDetections: 1,
-            cameras: [record.camera.name],
+            cameras: [],
           };
         } else {
           acc[personId].days[date].lastSeen = record.timestamp;
           acc[personId].days[date].totalDetections++;
-          if (!acc[personId].days[date].cameras.includes(record.camera.name)) {
-            acc[personId].days[date].cameras.push(record.camera.name);
-          }
         }
 
         return acc;

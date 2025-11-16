@@ -6,16 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { trpc } from "@/lib/trpc/client";
-import { 
-  Users, 
-  UserCheck, 
-  Clock, 
+import {
+  Users,
+  UserCheck,
+  Clock,
   Calendar as CalendarIcon,
   Download,
   Eye,
-  TrendingUp
+  TrendingUp,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -49,52 +53,82 @@ interface AttendanceRecord {
     name: string;
     photos: any;
   };
-  camera: {
-    id: string;
-    name: string;
-  } | null;
 }
 
-export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps) {
+export default function AttendanceDashboard({
+  siteId,
+}: AttendanceDashboardProps) {
+  const getPrimaryPhotoUrl = (photos: any): string | null => {
+    if (!photos) return null;
+    if (typeof photos === "string") return photos;
+    if (Array.isArray(photos)) {
+      const firstString = photos.find((p) => typeof p === "string");
+      return firstString || null;
+    }
+    // If photos is stored as an object with urls field
+    if (typeof photos === "object" && photos !== null) {
+      const maybeUrls = (photos as any).urls || (photos as any).images;
+      if (Array.isArray(maybeUrls)) {
+        const firstString = maybeUrls.find((p: any) => typeof p === "string");
+        return firstString || null;
+      }
+    }
+    return null;
+  };
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateRange, setDateRange] = useState({
     start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-    end: new Date()
+    end: new Date(),
   });
 
-  const { data: todayAttendance, isLoading: loadingToday } = trpc.getAttendance.useQuery({
-    siteId,
-    date: selectedDate
-  });
+  const { data: todayAttendance, isLoading: loadingToday } =
+    trpc.getAttendance.useQuery({
+      siteId,
+      date: selectedDate,
+    });
 
-  const { data: attendanceReport, isLoading: loadingReport } = trpc.getAttendanceReport.useQuery({
-    siteId,
-    startDate: dateRange.start,
-    endDate: dateRange.end
-  });
+  const { data: attendanceReport, isLoading: loadingReport } =
+    trpc.getAttendanceReport.useQuery({
+      siteId,
+      startDate: dateRange.start,
+      endDate: dateRange.end,
+    });
 
   const { data: knownFaces } = trpc.getKnownFaces.useQuery(siteId);
 
   // Calculate statistics
   const totalPeople = knownFaces?.length || 0;
   const presentToday = todayAttendance?.length || 0;
-  const attendanceRate = totalPeople > 0 ? Math.round((presentToday / totalPeople) * 100) : 0;
+  const attendanceRate =
+    totalPeople > 0 ? Math.round((presentToday / totalPeople) * 100) : 0;
 
   const exportAttendance = () => {
     if (!attendanceReport) return;
 
-    const csvContent = "data:text/csv;charset=utf-8," +
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
       "Name,Date,First Seen,Last Seen,Total Detections,Cameras\n" +
-      (attendanceReport as PersonReport[]).flatMap(person =>
-        Object.values(person.days).map((day: DayRecord) =>
-          `${person.name},${day.date},${format(new Date(day.firstSeen), 'HH:mm:ss')},${format(new Date(day.lastSeen), 'HH:mm:ss')},${day.totalDetections},"${day.cameras.join(', ')}"`
+      (attendanceReport as PersonReport[])
+        .flatMap((person) =>
+          Object.values(person.days).map(
+            (day: DayRecord) =>
+              `${person.name},${day.date},${format(
+                new Date(day.firstSeen),
+                "HH:mm:ss"
+              )},${format(new Date(day.lastSeen), "HH:mm:ss")},${
+                day.totalDetections
+              },"${day.cameras.join(", ")}"`
+          )
         )
-      ).join("\n");
+        .join("\n");
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `attendance_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.setAttribute(
+      "download",
+      `attendance_${format(new Date(), "yyyy-MM-dd")}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -108,7 +142,9 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total People</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Total People
+                </p>
                 <p className="text-2xl font-bold">{totalPeople}</p>
               </div>
               <Users className="w-8 h-8 text-blue-500" />
@@ -120,8 +156,12 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Present Today</p>
-                <p className="text-2xl font-bold text-green-600">{presentToday}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Present Today
+                </p>
+                <p className="text-2xl font-bold text-green-600">
+                  {presentToday}
+                </p>
               </div>
               <UserCheck className="w-8 h-8 text-green-500" />
             </div>
@@ -132,7 +172,9 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Attendance Rate</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Attendance Rate
+                </p>
                 <p className="text-2xl font-bold">{attendanceRate}%</p>
               </div>
               <TrendingUp className="w-8 h-8 text-purple-500" />
@@ -165,7 +207,7 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>
-                Attendance for {format(selectedDate, 'MMMM dd, yyyy')}
+                Attendance for {format(selectedDate, "MMMM dd, yyyy")}
               </CardTitle>
               <Button variant="outline" size="sm" onClick={exportAttendance}>
                 <Download className="w-4 h-4 mr-2" />
@@ -194,13 +236,12 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
             ) : (
               <div className="space-y-3">
                 {(todayAttendance as AttendanceRecord[])?.map((record) => {
-                  const photoUrl = record.personnel.photos
-                    ? Array.isArray(record.personnel.photos)
-                      ? record.personnel.photos[0]
-                      : null
-                    : null;
+                  const photoUrl = getPrimaryPhotoUrl(record.personnel.photos);
                   return (
-                    <div key={record.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div
+                      key={record.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
                       <div className="flex items-center gap-3">
                         {photoUrl ? (
                           <img
@@ -214,19 +255,23 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
                           </div>
                         )}
                         <div>
-                          <h4 className="font-medium">{record.personnel.name}</h4>
+                          <h4 className="font-medium">
+                            {record.personnel.name}
+                          </h4>
                           <p className="text-sm text-gray-500">
-                            {format(new Date(record.timestamp), 'HH:mm:ss')}
+                            {format(new Date(record.timestamp), "HH:mm:ss")}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <Badge variant="secondary">
-                          {Math.round(record.confidence)}% confidence
+                          {Math.round(
+                            record.confidence <= 1
+                              ? record.confidence * 100
+                              : record.confidence
+                          )}
+                          % confidence
                         </Badge>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Camera: {record.camera?.name || 'Unknown'}
-                        </p>
                       </div>
                     </div>
                   );
@@ -246,7 +291,8 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm">
                   <CalendarIcon className="w-4 h-4 mr-2" />
-                  {format(dateRange.start, 'MMM dd')} - {format(dateRange.end, 'MMM dd')}
+                  {format(dateRange.start, "MMM dd")} -{" "}
+                  {format(dateRange.end, "MMM dd")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -267,7 +313,10 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
           {loadingReport ? (
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-16 bg-gray-200 rounded animate-pulse" />
+                <div
+                  key={i}
+                  className="h-16 bg-gray-200 rounded animate-pulse"
+                />
               ))}
             </div>
           ) : attendanceReport?.length === 0 ? (
@@ -299,10 +348,16 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {Object.values(person.days).map((day: DayRecord) => (
-                      <div key={day.date} className="bg-gray-50 rounded p-3 text-sm">
-                        <div className="font-medium">{format(new Date(day.date), 'MMM dd')}</div>
+                      <div
+                        key={day.date}
+                        className="bg-gray-50 rounded p-3 text-sm"
+                      >
+                        <div className="font-medium">
+                          {format(new Date(day.date), "MMM dd")}
+                        </div>
                         <div className="text-gray-600">
-                          {format(new Date(day.firstSeen), 'HH:mm')} - {format(new Date(day.lastSeen), 'HH:mm')}
+                          {format(new Date(day.firstSeen), "HH:mm")} -{" "}
+                          {format(new Date(day.lastSeen), "HH:mm")}
                         </div>
                         <div className="text-xs text-gray-500">
                           {day.totalDetections} detections
