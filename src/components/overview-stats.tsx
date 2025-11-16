@@ -36,7 +36,11 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
   const { data: violations, isLoading: violationsLoading } =
     trpc.getActiveViolationsBySite.useQuery(siteId);
   const { data: ppeViolations, isLoading: ppeViolationsLoading } =
-    trpc.getActivePPEViolationsBySite.useQuery(siteId);
+    trpc.getActivePPEViolationsBySite.useQuery({
+      siteId,
+      limit: 100,
+      skip: 0,
+    });
   const { data: incidents, isLoading: incidentsLoading } =
     trpc.getIncidentsBySite.useQuery(siteId);
 

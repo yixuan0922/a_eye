@@ -65,7 +65,11 @@ export default function Dashboard() {
   );
 
   const { data: ppeViolations } = trpc.getActivePPEViolationsBySite.useQuery(
-    siteData?.id || "",
+    {
+      siteId: siteData?.id || "",
+      limit: 10,
+      skip: 0,
+    },
     {
       enabled: !!siteData?.id,
       refetchInterval: 5000, // Refresh every 5 seconds for live monitoring
