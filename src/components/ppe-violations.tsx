@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AlertTriangle, Eye, CheckCircle, HardHat, ShieldAlert, X, Search, Calendar } from "lucide-react";
+import { AlertTriangle, Eye, CheckCircle, HardHat, ShieldAlert, X, Search, Calendar, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import { convertS3UrlToHttps } from "@/lib/s3";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 interface PPEViolationsProps {
   siteId: string;
 }
+
+const ITEMS_PER_PAGE = 10;
 
 export default function PPEViolations({ siteId }: PPEViolationsProps) {
   const { toast } = useToast();
@@ -52,21 +54,84 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     return () => clearInterval(interval);
   }, [siteId]);
 
-  // Fetch PPE violations from the PPEViolation table
+  // Check for recent violations and send Telegram notifications
+  useEffect(() => {
+    const checkRecentViolations = async () => {
+      try {
+        await fetch('/api/check-recent-violations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ siteId }),
+        });
+      } catch (error) {
+        console.error('Failed to check recent violations:', error);
+      }
+    };
+
+    // Check immediately on mount
+    checkRecentViolations();
+
+    // Then check every 5 seconds
+    const interval = setInterval(checkRecentViolations, 5000);
+
+    return () => clearInterval(interval);
+  }, [siteId]);
+
+  // Pagination states for each section
+  const [ppePage, setPpePage] = useState(0);
+  const [unauthorizedPage, setUnauthorizedPage] = useState(0);
+  const [restrictedZonePage, setRestrictedZonePage] = useState(0);
+
+  // Fetch PPE violations with pagination
   const { data: ppeViolations, isLoading: isPPELoading, refetch: refetchPPE } = trpc.getPPEViolationsBySite.useQuery(
-    siteId,
+    {
+      siteId,
+      limit: ITEMS_PER_PAGE,
+      skip: ppePage * ITEMS_PER_PAGE,
+    },
     {
       refetchInterval: 5000, // Refresh every 5 seconds for live monitoring
     }
   );
 
-  // Fetch Unauthorized Access violations from the Violation table
-  const { data: unauthorizedViolations, isLoading: isUnauthorizedLoading, refetch: refetchUnauthorized } = trpc.getViolationsBySite.useQuery(
-    siteId,
+  // Fetch PPE violations count
+  const { data: ppeCount } = trpc.getPPEViolationsCount.useQuery(siteId, {
+    refetchInterval: 5000,
+  });
+
+  // Fetch Unauthorized Access violations with pagination
+  const { data: unauthorizedViolations, isLoading: isUnauthorizedLoading, refetch: refetchUnauthorized } = trpc.getUnauthorizedAccessBySite.useQuery(
+    {
+      siteId,
+      limit: ITEMS_PER_PAGE,
+      skip: unauthorizedPage * ITEMS_PER_PAGE,
+    },
     {
       refetchInterval: 5000, // Refresh every 5 seconds for live monitoring
     }
   );
+
+  // Fetch Unauthorized Access count
+  const { data: unauthorizedCount } = trpc.getUnauthorizedAccessCount.useQuery(siteId, {
+    refetchInterval: 5000,
+  });
+
+  // Fetch Restricted Zone violations with pagination
+  const { data: restrictedZoneViolations, isLoading: isRestrictedZoneLoading, refetch: refetchRestrictedZone } = trpc.getRestrictedZoneViolationsBySite.useQuery(
+    {
+      siteId,
+      limit: ITEMS_PER_PAGE,
+      skip: restrictedZonePage * ITEMS_PER_PAGE,
+    },
+    {
+      refetchInterval: 5000, // Refresh every 5 seconds for live monitoring
+    }
+  );
+
+  // Fetch Restricted Zone count
+  const { data: restrictedZoneCount } = trpc.getRestrictedZoneViolationsCount.useQuery(siteId, {
+    refetchInterval: 5000,
+  });
 
   // Resolve PPE violation mutation
   const resolvePPEViolationMutation = trpc.resolvePPEViolation.useMutation({
@@ -86,8 +151,8 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     },
   });
 
-  // Resolve unauthorized violation mutation
-  const resolveViolationMutation = trpc.resolveViolation.useMutation({
+  // Resolve unauthorized access mutation
+  const resolveUnauthorizedAccessMutation = trpc.resolveUnauthorizedAccess.useMutation({
     onSuccess: () => {
       toast({
         title: "Violation Resolved",
@@ -104,9 +169,27 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     },
   });
 
-  const isLoading = isPPELoading || isUnauthorizedLoading;
+  // Resolve violation mutation (for restricted zone)
+  const resolveViolationMutation = trpc.resolveViolation.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Violation Resolved",
+        description: "The violation has been marked as resolved.",
+      });
+      refetchRestrictedZone();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to resolve violation: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
-  // Filter out low severity violations and apply search/date filters
+  const isLoading = isPPELoading || isUnauthorizedLoading || isRestrictedZoneLoading;
+
+  // Filter out low severity violations and apply search/date filters for PPE
   const filteredPPEViolations = ppeViolations?.filter((v: any) => {
     // Filter out low severity
     if (v.severity === "low") return false;
@@ -136,6 +219,10 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     (v: any) => v.severity !== "low"
   );
 
+  const filteredRestrictedZoneViolations = restrictedZoneViolations?.filter(
+    (v: any) => v.severity !== "low"
+  );
+
   const handleViewDetails = (violation: any) => {
     setSelectedViolation(violation);
     setIsDetailModalOpen(true);
@@ -149,6 +236,15 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
   const handleResolvePPEViolation = (violationId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
     resolvePPEViolationMutation.mutate({
+      id: violationId,
+      resolvedBy: "System Admin", // You can replace this with actual user info
+      resolutionNotes: "Resolved via dashboard",
+    });
+  };
+
+  const handleResolveUnauthorizedAccess = (violationId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    resolveUnauthorizedAccessMutation.mutate({
       id: violationId,
       resolvedBy: "System Admin", // You can replace this with actual user info
       resolutionNotes: "Resolved via dashboard",
@@ -174,7 +270,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
             AI-detected safety violations and incidents
           </p>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* PPE Violations Loading */}
           <div>
             <div className="h-6 bg-gray-200 rounded w-1/3 mb-4 animate-pulse"></div>
@@ -190,6 +286,20 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
             </div>
           </div>
           {/* Unauthorized Access Loading */}
+          <div>
+            <div className="h-6 bg-gray-200 rounded w-1/3 mb-4 animate-pulse"></div>
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i} className="p-4">
+                  <div className="animate-pulse">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+          {/* Restricted Zone Loading */}
           <div>
             <div className="h-6 bg-gray-200 rounded w-1/3 mb-4 animate-pulse"></div>
             <div className="space-y-4">
@@ -370,7 +480,72 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     );
   };
 
-  const renderUnauthorizedViolation = (violation: any) => (
+  const renderUnauthorizedAccessViolation = (violation: any) => {
+    // Convert S3 URL to HTTPS URL
+    const imageUrl = convertS3UrlToHttps(violation.snapshotUrl);
+
+    return (
+      <Card
+        key={violation.id}
+        className="p-4 hover:shadow-lg transition-shadow cursor-pointer"
+        onClick={() => handleViewDetails(violation)}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-start space-x-4">
+            <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt="Unauthorized Access"
+                  className="w-full h-full rounded-lg object-cover"
+                />
+              ) : (
+                <ShieldAlert className="w-8 h-8 text-gray-400" />
+              )}
+            </div>
+
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-2">
+                <h3 className="font-semibold text-gray-900">
+                  {violation.identifiedPersonName || "Unknown Person"}
+                </h3>
+                <Badge className={getSeverityColor(violation.severity)}>
+                  {violation.severity.charAt(0).toUpperCase() +
+                    violation.severity.slice(1)}
+                </Badge>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-2">
+                Duration: {Math.floor(violation.durationSeconds)}s • Frames: {violation.totalFramesTracked}
+              </p>
+
+              <div className="flex items-center space-x-4 text-sm text-gray-500">
+                <span>{formatTime(violation.detectionTimestamp)}</span>
+                {violation.location && (
+                  <span>Location: {violation.location}</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {!violation.resolvedAt && violation.status === "active" && (
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={(e) => handleResolveUnauthorizedAccess(violation.id, e)}
+                disabled={resolveUnauthorizedAccessMutation.isPending}
+              >
+                <CheckCircle className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+    );
+  };
+
+  const renderRestrictedZoneViolation = (violation: any) => (
     <Card
       key={violation.id}
       className="p-4 hover:shadow-lg transition-shadow cursor-pointer"
@@ -386,7 +561,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
                 className="w-full h-full rounded-lg object-cover"
               />
             ) : (
-              <ShieldAlert className="w-8 h-8 text-gray-400" />
+              <MapPin className="w-8 h-8 text-gray-400" />
             )}
           </div>
 
@@ -430,6 +605,38 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     </Card>
   );
 
+  const renderPagination = (currentPage: number, totalCount: number, onPageChange: (page: number) => void) => {
+    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex items-center justify-between mt-4">
+        <p className="text-sm text-gray-600">
+          Page {currentPage + 1} of {totalPages} ({totalCount} total)
+        </p>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 0}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages - 1}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="p-6">
       <div className="mb-6">
@@ -441,13 +648,13 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* PPE Violations Column */}
         <div>
           <div className="flex items-center space-x-2 mb-4">
             <HardHat className="w-5 h-5 text-gray-700" />
             <h3 className="text-lg font-semibold text-gray-900">
-              PPE Violations ({filteredPPEViolations?.length || 0})
+              PPE Violations ({ppeCount || 0})
             </h3>
           </div>
 
@@ -523,6 +730,8 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
               </div>
             )}
           </div>
+
+          {renderPagination(ppePage, ppeCount || 0, setPpePage)}
         </div>
 
         {/* Unauthorized Access Violations Column */}
@@ -530,12 +739,12 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
           <div className="flex items-center space-x-2 mb-4">
             <ShieldAlert className="w-5 h-5 text-gray-700" />
             <h3 className="text-lg font-semibold text-gray-900">
-              Unauthorized Access ({filteredUnauthorizedViolations?.length || 0})
+              Unauthorized Access ({unauthorizedCount || 0})
             </h3>
           </div>
           <div className="space-y-4">
             {filteredUnauthorizedViolations && filteredUnauthorizedViolations.length > 0 ? (
-              filteredUnauthorizedViolations.map(renderUnauthorizedViolation)
+              filteredUnauthorizedViolations.map(renderUnauthorizedAccessViolation)
             ) : (
               <div className="text-center py-8 bg-gray-50 rounded-lg">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -550,6 +759,37 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
               </div>
             )}
           </div>
+
+          {renderPagination(unauthorizedPage, unauthorizedCount || 0, setUnauthorizedPage)}
+        </div>
+
+        {/* Restricted Zone Violations Column */}
+        <div>
+          <div className="flex items-center space-x-2 mb-4">
+            <MapPin className="w-5 h-5 text-gray-700" />
+            <h3 className="text-lg font-semibold text-gray-900">
+              Restricted Zone ({restrictedZoneCount || 0})
+            </h3>
+          </div>
+          <div className="space-y-4">
+            {filteredRestrictedZoneViolations && filteredRestrictedZoneViolations.length > 0 ? (
+              filteredRestrictedZoneViolations.map(renderRestrictedZoneViolation)
+            ) : (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+                <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                  No Restricted Zone Violations
+                </h4>
+                <p className="text-xs text-gray-600">
+                  All zones are secure
+                </p>
+              </div>
+            )}
+          </div>
+
+          {renderPagination(restrictedZonePage, restrictedZoneCount || 0, setRestrictedZonePage)}
         </div>
       </div>
 
@@ -596,7 +836,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-gray-500">Name</p>
-                      <p className="text-sm font-medium">{selectedViolation.personName || 'Unknown'}</p>
+                      <p className="text-sm font-medium">{selectedViolation.personName || selectedViolation.identifiedPersonName || 'Unknown'}</p>
                     </div>
                     {selectedViolation.confidenceScore && (
                       <div>
@@ -650,6 +890,29 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
                   </div>
                 )}
 
+                {/* Unauthorized Access Information */}
+                {selectedViolation.durationSeconds !== undefined && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Detection Details</h3>
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-xs text-gray-500">Duration</p>
+                        <p className="text-sm font-medium">{Math.floor(selectedViolation.durationSeconds)} seconds</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Frames Tracked</p>
+                        <p className="text-sm font-medium">{selectedViolation.totalFramesTracked}</p>
+                      </div>
+                      {selectedViolation.faceDetectionAttempts !== undefined && (
+                        <div>
+                          <p className="text-xs text-gray-500">Face Detection Attempts</p>
+                          <p className="text-sm font-medium">{selectedViolation.faceDetectionAttempts}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Location & Camera */}
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Location Details</h3>
@@ -674,7 +937,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
                     <div>
                       <p className="text-xs text-gray-500">Detection Time</p>
                       <p className="text-sm font-medium">
-                        {formatTime(selectedViolation.updatedAt)}
+                        {formatTime(selectedViolation.updatedAt || selectedViolation.detectionTimestamp || selectedViolation.createdAt)}
                       </p>
                     </div>
                     <div>

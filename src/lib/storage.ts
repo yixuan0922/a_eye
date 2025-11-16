@@ -343,7 +343,7 @@ export class Storage {
   }
 
   // PPE Violations
-  async getPPEViolationsBySite(siteId: string): Promise<any[]> {
+  async getPPEViolationsBySite(siteId: string, limit: number = 10, skip: number = 0): Promise<any[]> {
     return await db.pPEViolation.findMany({
       where: { siteId },
       include: {
@@ -352,10 +352,12 @@ export class Storage {
         personnel: true,
       },
       orderBy: { detectionTimestamp: "desc" },
+      take: limit,
+      skip: skip,
     });
   }
 
-  async getActivePPEViolationsBySite(siteId: string): Promise<any[]> {
+  async getActivePPEViolationsBySite(siteId: string, limit: number = 10, skip: number = 0): Promise<any[]> {
     return await db.pPEViolation.findMany({
       where: {
         siteId,
@@ -367,6 +369,8 @@ export class Storage {
         personnel: true,
       },
       orderBy: { detectionTimestamp: "desc" },
+      take: limit,
+      skip: skip,
     });
   }
 
@@ -435,6 +439,111 @@ export class Storage {
         status: "acknowledged",
         acknowledgedBy,
         acknowledgedAt: new Date(),
+      },
+    });
+  }
+
+  async getPPEViolationsCount(siteId: string): Promise<number> {
+    return await db.pPEViolation.count({
+      where: { siteId },
+    });
+  }
+
+  // Unauthorized Access
+  async getUnauthorizedAccessBySite(siteId: string, limit: number = 10, skip: number = 0): Promise<any[]> {
+    return await db.unauthorizedAccess.findMany({
+      where: { siteId },
+      include: {
+        site: true,
+        camera: true,
+        identifiedPersonnel: true,
+      },
+      orderBy: { detectionTimestamp: "desc" },
+      take: limit,
+      skip: skip,
+    });
+  }
+
+  async getActiveUnauthorizedAccessBySite(siteId: string, limit: number = 10, skip: number = 0): Promise<any[]> {
+    return await db.unauthorizedAccess.findMany({
+      where: {
+        siteId,
+        status: "active",
+      },
+      include: {
+        site: true,
+        camera: true,
+        identifiedPersonnel: true,
+      },
+      orderBy: { detectionTimestamp: "desc" },
+      take: limit,
+      skip: skip,
+    });
+  }
+
+  async getUnauthorizedAccessCount(siteId: string): Promise<number> {
+    return await db.unauthorizedAccess.count({
+      where: { siteId },
+    });
+  }
+
+  async resolveUnauthorizedAccess(
+    id: string,
+    resolvedBy: string,
+    resolutionNotes?: string
+  ): Promise<any> {
+    return await db.unauthorizedAccess.update({
+      where: { id },
+      data: {
+        status: "resolved",
+        resolvedBy,
+        resolvedAt: new Date(),
+        resolutionNotes,
+      },
+    });
+  }
+
+  // Restricted Zone Violations (using Violation table with type filter)
+  async getRestrictedZoneViolationsBySite(siteId: string, limit: number = 10, skip: number = 0): Promise<any[]> {
+    return await db.violation.findMany({
+      where: {
+        siteId,
+        type: "restricted_zone",
+      },
+      include: {
+        site: true,
+        camera: true,
+        personnel: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      skip: skip,
+    });
+  }
+
+  async getActiveRestrictedZoneViolationsBySite(siteId: string, limit: number = 10, skip: number = 0): Promise<any[]> {
+    return await db.violation.findMany({
+      where: {
+        siteId,
+        type: "restricted_zone",
+        status: "active",
+      },
+      include: {
+        site: true,
+        camera: true,
+        personnel: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      skip: skip,
+    });
+  }
+
+  async getRestrictedZoneViolationsCount(siteId: string): Promise<number> {
+    return await db.violation.count({
+      where: {
+        siteId,
+        type: "restricted_zone",
       },
     });
   }

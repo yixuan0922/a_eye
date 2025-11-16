@@ -183,15 +183,33 @@ export const appRouter = router({
 
   // PPE Violations
   getPPEViolationsBySite: publicProcedure
-    .input(z.string())
+    .input(
+      z.object({
+        siteId: z.string(),
+        limit: z.number().optional(),
+        skip: z.number().optional(),
+      })
+    )
     .query(async ({ input }) => {
-      return await storage.getPPEViolationsBySite(input);
+      return await storage.getPPEViolationsBySite(input.siteId, input.limit, input.skip);
     }),
 
   getActivePPEViolationsBySite: publicProcedure
+    .input(
+      z.object({
+        siteId: z.string(),
+        limit: z.number().optional(),
+        skip: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      return await storage.getActivePPEViolationsBySite(input.siteId, input.limit, input.skip);
+    }),
+
+  getPPEViolationsCount: publicProcedure
     .input(z.string())
     .query(async ({ input }) => {
-      return await storage.getActivePPEViolationsBySite(input);
+      return await storage.getPPEViolationsCount(input);
     }),
 
   getPPEViolation: publicProcedure
@@ -257,6 +275,100 @@ export const appRouter = router({
         input.id,
         input.acknowledgedBy
       );
+    }),
+
+  // Unauthorized Access
+  getUnauthorizedAccessBySite: publicProcedure
+    .input(
+      z.object({
+        siteId: z.string(),
+        limit: z.number().optional(),
+        skip: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      return await storage.getUnauthorizedAccessBySite(
+        input.siteId,
+        input.limit,
+        input.skip
+      );
+    }),
+
+  getActiveUnauthorizedAccessBySite: publicProcedure
+    .input(
+      z.object({
+        siteId: z.string(),
+        limit: z.number().optional(),
+        skip: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      return await storage.getActiveUnauthorizedAccessBySite(
+        input.siteId,
+        input.limit,
+        input.skip
+      );
+    }),
+
+  getUnauthorizedAccessCount: publicProcedure
+    .input(z.string())
+    .query(async ({ input }) => {
+      return await storage.getUnauthorizedAccessCount(input);
+    }),
+
+  resolveUnauthorizedAccess: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        resolvedBy: z.string(),
+        resolutionNotes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return await storage.resolveUnauthorizedAccess(
+        input.id,
+        input.resolvedBy,
+        input.resolutionNotes
+      );
+    }),
+
+  // Restricted Zone Violations
+  getRestrictedZoneViolationsBySite: publicProcedure
+    .input(
+      z.object({
+        siteId: z.string(),
+        limit: z.number().optional(),
+        skip: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      return await storage.getRestrictedZoneViolationsBySite(
+        input.siteId,
+        input.limit,
+        input.skip
+      );
+    }),
+
+  getActiveRestrictedZoneViolationsBySite: publicProcedure
+    .input(
+      z.object({
+        siteId: z.string(),
+        limit: z.number().optional(),
+        skip: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      return await storage.getActiveRestrictedZoneViolationsBySite(
+        input.siteId,
+        input.limit,
+        input.skip
+      );
+    }),
+
+  getRestrictedZoneViolationsCount: publicProcedure
+    .input(z.string())
+    .query(async ({ input }) => {
+      return await storage.getRestrictedZoneViolationsCount(input);
     }),
 
   // Incidents
