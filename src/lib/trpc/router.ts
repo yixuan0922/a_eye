@@ -2,6 +2,7 @@ import { z } from "zod";
 import { router, publicProcedure } from "./trpc";
 import { storage } from "../storage";
 import { db } from "../db";
+import { S3Service } from "../s3";
 
 export const appRouter = router({
   // Sites
@@ -77,12 +78,83 @@ export const appRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      return await storage.updatePersonnelStatus(
+      // Read current record to access name and photos for side-effects
+      const existing = await db.personnel.findUnique({
+        where: { id: input.id },
+      });
+
+      const updated = await storage.updatePersonnelStatus(
         input.id,
         input.status,
         input.isAuthorized,
         input.authorizedBy
       );
+
+      // On approval: send faces from S3 to Jetson/Flask
+      if (input.isAuthorized) {
+        try {
+          const photoUrls = (existing?.photos as string[]) || [];
+          if (photoUrls.length > 0) {
+            const formData = new FormData();
+
+            // Download each S3 photo and attach as a file part
+            await Promise.all(
+              photoUrls.map(async (url, index) => {
+                const res = await fetch(url);
+                if (!res.ok)
+                  throw new Error(`Failed to fetch photo ${index + 1}`);
+                const contentType =
+                  res.headers.get("content-type") || "image/jpeg";
+                const arrayBuffer = await res.arrayBuffer();
+                const blob = new Blob([arrayBuffer], { type: contentType });
+                formData.append("files", blob, `photo_${index}.jpg`);
+              })
+            );
+
+            // Include metadata expected by Flask
+            formData.append("name", existing?.name || "");
+            formData.append("personnelId", input.id);
+
+            const flaskUrl =
+              process.env.FLASK_ADD_FACES_URL ||
+              "https://aeye001.biofuel.osiris.sg/api/add_faces";
+
+            const resp = await fetch(flaskUrl, {
+              method: "POST",
+              body: formData,
+            });
+
+            // Log but do not block UI on non-2xx (partial/temporary errors shouldn't break approval)
+            if (!resp.ok && resp.status !== 207) {
+              let body: any;
+              try {
+                body = await resp.json();
+              } catch {
+                body = await resp.text();
+              }
+              console.warn("Flask add_faces non-OK:", resp.status, body);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to add faces to Jetson after approval:", error);
+        }
+      } else if (input.status === "rejected") {
+        // On rejection: delete all stored S3 photos and clear field
+        try {
+          const photoUrls = (existing?.photos as string[]) || [];
+          if (photoUrls.length > 0) {
+            await S3Service.deleteMultipleFiles(photoUrls);
+            await db.personnel.update({
+              where: { id: input.id },
+              data: { photos: [] },
+            });
+          }
+        } catch (error) {
+          console.error("Failed to clean up S3 photos on rejection:", error);
+        }
+      }
+
+      return updated;
     }),
 
   updatePersonnel: publicProcedure
@@ -340,7 +412,7 @@ export const appRouter = router({
       return await db.personnel.findMany({
         where: {
           siteId,
-          isAuthorized: true
+          isAuthorized: true,
         },
         orderBy: { createdAt: "desc" },
       });
@@ -478,7 +550,11 @@ export const appRouter = router({
         if (!acc[personId]) {
           acc[personId] = {
             name: record.personnel.name,
-            photoUrl: record.personnel.photos ? (Array.isArray(record.personnel.photos) ? record.personnel.photos[0] : null) : null,
+            photoUrl: record.personnel.photos
+              ? Array.isArray(record.personnel.photos)
+                ? record.personnel.photos[0]
+                : null
+              : null,
             days: {},
           };
         }

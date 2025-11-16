@@ -51,7 +51,16 @@ export async function POST(
       },
     })
 
-    // Call Flask API to update face recognition with new photos
+    // If not yet authorized, do NOT push to Jetson/Flask.
+    if (!personnel.isAuthorized) {
+      return NextResponse.json({
+        personnel: updatedPersonnel,
+        newPhotos: newPhotoUrls,
+        note: "Photos stored in S3. Will sync to Jetson upon approval.",
+      })
+    }
+
+    // Call Flask API to update face recognition with new photos (only for authorized personnel)
     const flaskUrl = process.env.FLASK_API_URL || "http://localhost:5001"
     try {
       const flaskFormData = new FormData()
