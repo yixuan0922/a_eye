@@ -703,6 +703,118 @@ export const appRouter = router({
         },
       });
     }),
+
+  // PPE Violation Report Data
+  getPPEViolationReport: publicProcedure
+    .input(
+      z.object({
+        siteId: z.string(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const startDate = input.startDate || new Date(new Date().setDate(new Date().getDate() - 30));
+      const endDate = input.endDate || new Date();
+
+      // Get all PPE violations in the date range
+      const violations = await db.pPEViolation.findMany({
+        where: {
+          siteId: input.siteId,
+          detectionTimestamp: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        include: {
+          personnel: true,
+          camera: true,
+        },
+        orderBy: {
+          detectionTimestamp: 'desc',
+        },
+      });
+
+      // Get today's violations
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const todayViolations = violations.filter(v =>
+        v.detectionTimestamp >= todayStart && v.detectionTimestamp <= todayEnd
+      );
+
+      // Get this month's violations
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      const monthEnd = new Date();
+      monthEnd.setMonth(monthEnd.getMonth() + 1, 0);
+      monthEnd.setHours(23, 59, 59, 999);
+
+      const monthViolations = violations.filter(v =>
+        v.detectionTimestamp >= monthStart && v.detectionTimestamp <= monthEnd
+      );
+
+      // Group violations by person
+      const violationsByPerson: Record<string, any> = {};
+      violations.forEach(v => {
+        if (!violationsByPerson[v.personName]) {
+          violationsByPerson[v.personName] = {
+            personName: v.personName,
+            violations: [],
+            totalViolations: 0,
+            todayViolations: 0,
+            monthViolations: 0,
+            missingItems: new Set<string>(),
+          };
+        }
+
+        violationsByPerson[v.personName].violations.push(v);
+        violationsByPerson[v.personName].totalViolations += 1;
+
+        if (v.detectionTimestamp >= todayStart && v.detectionTimestamp <= todayEnd) {
+          violationsByPerson[v.personName].todayViolations += 1;
+        }
+
+        if (v.detectionTimestamp >= monthStart && v.detectionTimestamp <= monthEnd) {
+          violationsByPerson[v.personName].monthViolations += 1;
+        }
+
+        // Track missing items
+        const missing = Array.isArray(v.ppeMissing) ? v.ppeMissing : JSON.parse(v.ppeMissing as string);
+        missing.forEach((item: string) => {
+          violationsByPerson[v.personName].missingItems.add(item);
+        });
+      });
+
+      // Convert sets to arrays
+      Object.values(violationsByPerson).forEach((person: any) => {
+        person.missingItems = Array.from(person.missingItems);
+      });
+
+      // Get frequently missing PPE items
+      const missingItemsCount: Record<string, number> = {};
+      violations.forEach(v => {
+        const missing = Array.isArray(v.ppeMissing) ? v.ppeMissing : JSON.parse(v.ppeMissing as string);
+        missing.forEach((item: string) => {
+          missingItemsCount[item] = (missingItemsCount[item] || 0) + 1;
+        });
+      });
+
+      return {
+        violations,
+        todayViolations,
+        monthViolations,
+        violationsByPerson: Object.values(violationsByPerson),
+        missingItemsCount,
+        dateRange: {
+          startDate,
+          endDate,
+        },
+      };
+    }),
 });
 
 export type AppRouter = typeof appRouter;
