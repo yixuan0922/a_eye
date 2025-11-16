@@ -349,11 +349,6 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
               <span className="text-sm font-medium">Add Personnel</span>
             </Button>
 
-            <Button className="p-4 h-auto bg-warning-orange hover:bg-orange-600 text-white flex flex-col items-center">
-              <Bell className="text-2xl mb-2" />
-              <span className="text-sm font-medium">Send Alert</span>
-            </Button>
-
             <Button
               className="p-4 h-auto bg-gray-600 hover:bg-gray-700 text-white flex flex-col items-center"
               onClick={handleGenerateReport}
