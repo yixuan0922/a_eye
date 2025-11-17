@@ -58,6 +58,49 @@ interface AttendanceRecord {
 export default function AttendanceDashboard({
   siteId,
 }: AttendanceDashboardProps) {
+  // Render timestamps in UTC without applying local timezone (+8)
+  const formatUtcDateTime = (ts: Date | string) => {
+    const iso = (ts instanceof Date ? ts : new Date(ts)).toISOString();
+    // YYYY-MM-DDTHH:mm:ss.sssZ -> YYYY-MM-DD HH:mm:ss
+    return `${iso.slice(0, 10)} ${iso.slice(11, 19)}`;
+  };
+  const formatUtcTime = (ts: Date | string, withSeconds: boolean = true) => {
+    const iso = (ts instanceof Date ? ts : new Date(ts)).toISOString();
+    const hhmmss = iso.slice(11, 19);
+    return withSeconds ? hhmmss : hhmmss.slice(0, 5);
+  };
+  // Helpers to format in SGT (UTC+8) without altering the stored instant
+  const formatSgtParts = (ts: Date | string) => {
+    const date = ts instanceof Date ? ts : new Date(ts);
+    const parts = new Intl.DateTimeFormat("en-SG", {
+      timeZone: "Asia/Singapore",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).formatToParts(date);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value || "";
+    const year = get("year");
+    const month = get("month");
+    const day = get("day");
+    let hour = get("hour");
+    const minute = get("minute");
+    const dayPeriod = get("dayPeriod")?.toLowerCase();
+    // Remove any leading zeros from hour (Intl may return "03")
+    hour = String(parseInt(hour, 10));
+    return { year, month, day, hour, minute, dayPeriod };
+  };
+  const formatSgtTime12 = (ts: Date | string) => {
+    const p = formatSgtParts(ts);
+    return `${p.hour}.${p.minute} ${p.dayPeriod}`;
+  };
+  const formatSgtDateTime12 = (ts: Date | string) => {
+    const p = formatSgtParts(ts);
+    return `${p.year}-${p.month}-${p.day} ${p.hour}.${p.minute} ${p.dayPeriod}`;
+  };
+
   const getPrimaryPhotoUrl = (photos: any): string | null => {
     if (!photos) return null;
     if (typeof photos === "string") return photos;
@@ -112,10 +155,10 @@ export default function AttendanceDashboard({
         .flatMap((person) =>
           Object.values(person.days).map(
             (day: DayRecord) =>
-              `${person.name},${day.date},${format(
-                new Date(day.firstSeen),
-                "HH:mm:ss"
-              )},${format(new Date(day.lastSeen), "HH:mm:ss")},${
+              `${person.name},${day.date},${formatUtcTime(
+                day.firstSeen,
+                true
+              )},${formatUtcTime(day.lastSeen, true)},${
                 day.totalDetections
               },"${day.cameras.join(", ")}"`
           )
@@ -259,7 +302,7 @@ export default function AttendanceDashboard({
                             {record.personnel.name}
                           </h4>
                           <p className="text-sm text-gray-500">
-                            {format(new Date(record.timestamp), "HH:mm:ss")}
+                            {formatSgtDateTime12(record.timestamp)}
                           </p>
                         </div>
                       </div>
@@ -356,8 +399,7 @@ export default function AttendanceDashboard({
                           {format(new Date(day.date), "MMM dd")}
                         </div>
                         <div className="text-gray-600">
-                          {format(new Date(day.firstSeen), "HH:mm")} -{" "}
-                          {format(new Date(day.lastSeen), "HH:mm")}
+                          {formatSgtTime12(day.firstSeen)} - {formatSgtTime12(day.lastSeen)}
                         </div>
                         <div className="text-xs text-gray-500">
                           {day.totalDetections} detections
