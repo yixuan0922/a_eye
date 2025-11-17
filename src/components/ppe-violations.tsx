@@ -27,9 +27,21 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
   const { toast } = useToast();
   const [selectedViolation, setSelectedViolation] = useState<any>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // Search and filter states for PPE
   const [searchName, setSearchName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  // Search and filter states for Unauthorized Access
+  const [unauthorizedStartDate, setUnauthorizedStartDate] = useState("");
+  const [unauthorizedEndDate, setUnauthorizedEndDate] = useState("");
+
+  // Search and filter states for Restricted Zone
+  const [restrictedZoneSearchName, setRestrictedZoneSearchName] = useState("");
+  const [restrictedZoneStartDate, setRestrictedZoneStartDate] = useState("");
+  const [restrictedZoneEndDate, setRestrictedZoneEndDate] = useState("");
+
 
   // Check for recent PPE violations and send Telegram notifications
   useEffect(() => {
@@ -215,13 +227,55 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     return true;
   });
 
-  const filteredUnauthorizedViolations = unauthorizedViolations?.filter(
-    (v: any) => v.severity !== "low"
-  );
+  // Filter unauthorized access violations
+  const filteredUnauthorizedViolations = unauthorizedViolations?.filter((v: any) => {
+    // Filter out low severity
+    if (v.severity === "low") return false;
 
-  const filteredRestrictedZoneViolations = restrictedZoneViolations?.filter(
-    (v: any) => v.severity !== "low"
-  );
+    // Filter by date & time range
+    if (unauthorizedStartDate || unauthorizedEndDate) {
+      const violationDate = new Date(v.detectionTimestamp);
+      if (unauthorizedStartDate) {
+        const start = new Date(unauthorizedStartDate);
+        if (violationDate < start) return false;
+      }
+      if (unauthorizedEndDate) {
+        const end = new Date(unauthorizedEndDate);
+        if (violationDate > end) return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Filter restricted zone violations
+  const filteredRestrictedZoneViolations = restrictedZoneViolations?.filter((v: any) => {
+    // Filter out low severity
+    if (v.severity === "low") return false;
+
+    // Extract person name from description for filtering
+    const personName = v.description?.split(' detected in ')[0] || '';
+
+    // Filter by name search
+    if (restrictedZoneSearchName && !personName.toLowerCase().includes(restrictedZoneSearchName.toLowerCase())) {
+      return false;
+    }
+
+    // Filter by date & time range
+    if (restrictedZoneStartDate || restrictedZoneEndDate) {
+      const violationDate = new Date(v.createdAt);
+      if (restrictedZoneStartDate) {
+        const start = new Date(restrictedZoneStartDate);
+        if (violationDate < start) return false;
+      }
+      if (restrictedZoneEndDate) {
+        const end = new Date(restrictedZoneEndDate);
+        if (violationDate > end) return false;
+      }
+    }
+
+    return true;
+  });
 
   const handleViewDetails = (violation: any) => {
     setSelectedViolation(violation);
@@ -545,10 +599,60 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     );
   };
 
+  // Format time for restricted zone violations (timestamps are already in SGT, no conversion needed)
+  const formatRestrictedZoneTime = (date: Date | string | null) => {
+    if (!date) return "Never";
+
+    const formatDateManually = (year: number, month: number, day: number, hour: number, minute: number, second: number) => {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const monthStr = pad(month);
+      const dayStr = pad(day);
+      const hourStr12 = hour % 12 || 12;
+      const hourStr = pad(hourStr12);
+      const minuteStr = pad(minute);
+      const secondStr = pad(second);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      return `${monthStr}/${dayStr}/${year}, ${hourStr}:${minuteStr}:${secondStr} ${ampm}`;
+    };
+
+    let dateObj: Date;
+    if (typeof date === 'string') {
+      dateObj = new Date(date);
+    } else {
+      dateObj = date;
+    }
+
+    if (isNaN(dateObj.getTime())) {
+      console.error('Invalid date:', date);
+      return "Invalid date";
+    }
+
+    // Use UTC components directly as they represent SGT time
+    const year = dateObj.getUTCFullYear();
+    const month = dateObj.getUTCMonth() + 1;
+    const day = dateObj.getUTCDate();
+    const hour = dateObj.getUTCHours();
+    const minute = dateObj.getUTCMinutes();
+    const second = dateObj.getUTCSeconds();
+
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - dateObj.getTime()) / 60000);
+
+    if (diffInMinutes < -5) {
+      return formatDateManually(year, month, day, hour, minute, second);
+    }
+
+    if (diffInMinutes < 1) return "Just now";
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+    if (diffInMinutes < 43200) return `${Math.floor(diffInMinutes / 1440)}d ago`;
+
+    return formatDateManually(year, month, day, hour, minute, second);
+  };
+
   const renderRestrictedZoneViolation = (violation: any) => {
     // Convert S3 URL to HTTPS URL
     const imageUrl = convertS3UrlToHttps(violation.imageUrl);
-
 
     // Extract person name from description if available
     // Expected format: "PersonName detected in ZoneName"
@@ -592,7 +696,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
 
               <div className="flex flex-col space-y-1 text-sm text-gray-500">
                 <div className="flex items-center space-x-4">
-                  <span>{formatTime(violation.createdAt)}</span>
+                  <span>{formatRestrictedZoneTime(violation.createdAt)}</span>
                   {violation.camera?.name && (
                     <span>Camera: {violation.camera.name}</span>
                   )}
@@ -758,6 +862,49 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
               Unauthorized Access ({unauthorizedCount || 0})
             </h3>
           </div>
+
+          {/* Search and Filter Controls */}
+          <div className="space-y-3 mb-4">
+            {/* Date & Time Range Filter */}
+            <div className="grid grid-cols-1 gap-2">
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="datetime-local"
+                  value={unauthorizedStartDate}
+                  onChange={(e) => setUnauthorizedStartDate(e.target.value)}
+                  placeholder="Start date & time"
+                  className="pl-10 text-sm"
+                />
+              </div>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="datetime-local"
+                  value={unauthorizedEndDate}
+                  onChange={(e) => setUnauthorizedEndDate(e.target.value)}
+                  placeholder="End date & time"
+                  className="pl-10 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Clear Filters Button */}
+            {(unauthorizedStartDate || unauthorizedEndDate) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setUnauthorizedStartDate("");
+                  setUnauthorizedEndDate("");
+                }}
+                className="w-full"
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+
           <div className="space-y-4">
             {filteredUnauthorizedViolations && filteredUnauthorizedViolations.length > 0 ? (
               filteredUnauthorizedViolations.map(renderUnauthorizedAccessViolation)
@@ -787,6 +934,62 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
               Restricted Zone ({restrictedZoneCount || 0})
             </h3>
           </div>
+
+          {/* Search and Filter Controls */}
+          <div className="space-y-3 mb-4">
+            {/* Name Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search by name..."
+                value={restrictedZoneSearchName}
+                onChange={(e) => setRestrictedZoneSearchName(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Date & Time Range Filter */}
+            <div className="grid grid-cols-1 gap-2">
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="datetime-local"
+                  value={restrictedZoneStartDate}
+                  onChange={(e) => setRestrictedZoneStartDate(e.target.value)}
+                  placeholder="Start date & time"
+                  className="pl-10 text-sm"
+                />
+              </div>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="datetime-local"
+                  value={restrictedZoneEndDate}
+                  onChange={(e) => setRestrictedZoneEndDate(e.target.value)}
+                  placeholder="End date & time"
+                  className="pl-10 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Clear Filters Button */}
+            {(restrictedZoneSearchName || restrictedZoneStartDate || restrictedZoneEndDate) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRestrictedZoneSearchName("");
+                  setRestrictedZoneStartDate("");
+                  setRestrictedZoneEndDate("");
+                }}
+                className="w-full"
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+
           <div className="space-y-4">
             {filteredRestrictedZoneViolations && filteredRestrictedZoneViolations.length > 0 ? (
               filteredRestrictedZoneViolations.map(renderRestrictedZoneViolation)
@@ -811,7 +1014,11 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
 
       {/* Violation Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className={`${
+          selectedViolation?.type === 'restricted_zone' || selectedViolation?.durationSeconds !== undefined
+            ? 'max-w-7xl'
+            : 'max-w-5xl'
+        } max-h-[90vh] overflow-y-auto`}>
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Violation Details</span>
@@ -824,11 +1031,22 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
           </DialogHeader>
 
           {selectedViolation && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className={`grid grid-cols-1 gap-6 ${
+              selectedViolation.type === 'restricted_zone' || selectedViolation.durationSeconds !== undefined
+                ? 'lg:grid-cols-[2fr,1fr]'
+                : 'lg:grid-cols-2'
+            }`}>
               {/* Left Side - Snapshot Image */}
               <div className="flex flex-col">
                 {(selectedViolation.snapshotUrl || selectedViolation.imageUrl) ? (
-                  <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ height: '500px' }}>
+                  <div
+                    className="bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center"
+                    style={{
+                      height: selectedViolation.type === 'restricted_zone' || selectedViolation.durationSeconds !== undefined
+                        ? '600px'
+                        : '500px'
+                    }}
+                  >
                     <img
                       src={convertS3UrlToHttps(selectedViolation.snapshotUrl || selectedViolation.imageUrl) || ''}
                       alt="Violation Snapshot"
@@ -846,7 +1064,14 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
               </div>
 
               {/* Right Side - Details */}
-              <div className="space-y-4 overflow-y-auto" style={{ maxHeight: '500px' }}>
+              <div
+                className="space-y-4 overflow-y-auto"
+                style={{
+                  maxHeight: selectedViolation.type === 'restricted_zone' || selectedViolation.durationSeconds !== undefined
+                    ? '600px'
+                    : '500px'
+                }}
+              >
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Person Information</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -953,7 +1178,10 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
                     <div>
                       <p className="text-xs text-gray-500">Detection Time</p>
                       <p className="text-sm font-medium">
-                        {formatTime(selectedViolation.updatedAt || selectedViolation.detectionTimestamp || selectedViolation.createdAt)}
+                        {selectedViolation.type === 'restricted_zone'
+                          ? formatRestrictedZoneTime(selectedViolation.createdAt)
+                          : formatTime(selectedViolation.updatedAt || selectedViolation.detectionTimestamp || selectedViolation.createdAt)
+                        }
                       </p>
                     </div>
                     <div>
