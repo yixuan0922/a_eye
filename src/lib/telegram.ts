@@ -5,7 +5,7 @@
 
 const TELEGRAM_BOT_URL = process.env.TELEGRAM_BOT_URL || 'http://localhost:3001';
 
-export type NotificationType = 'violation' | 'ppe_violation' | 'unauthorized' | 'success';
+export type NotificationType = 'violation' | 'ppe_violation' | 'unauthorized' | 'zone_intrusion' | 'success';
 
 interface SendNotificationParams {
   userId: string;
@@ -171,6 +171,31 @@ Severity: ${violation.severity.toUpperCase()}
 Time: ${new Date(violation.createdAt).toLocaleString()}
 
 Please review and take appropriate action.
+  `.trim();
+}
+
+/**
+ * Format restricted zone intrusion message
+ */
+export function formatZoneIntrusionMessage(intrusion: {
+  personName: string;
+  zoneName: string;
+  location?: string;
+  severity: string;
+  detectionTimestamp: Date;
+}): string {
+  const severityEmoji = intrusion.severity === "high" ? "🚨" : intrusion.severity === "medium" ? "⚠️" : "ℹ️";
+
+  return `
+${severityEmoji} RESTRICTED ZONE INTRUSION
+
+Person: ${intrusion.personName}
+Zone: ${intrusion.zoneName}
+Location: ${intrusion.location || 'Unknown'}
+Severity: ${intrusion.severity.toUpperCase()}
+Time: ${new Date(intrusion.detectionTimestamp).toLocaleString()}
+
+Immediate action may be required.
   `.trim();
 }
 
