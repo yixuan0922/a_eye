@@ -717,7 +717,19 @@ export const appRouter = router({
       const startDate = input.startDate || new Date(new Date().setDate(new Date().getDate() - 30));
       const endDate = input.endDate || new Date();
 
-      // Get all PPE violations in the date range
+      // Get total count of violations in the date range
+      const totalCount = await db.pPEViolation.count({
+        where: {
+          siteId: input.siteId,
+          detectionTimestamp: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      });
+
+      // Get PPE violations in the date range with pagination limit
+      // Limit to 1000 most recent violations to prevent performance issues
       const violations = await db.pPEViolation.findMany({
         where: {
           siteId: input.siteId,
@@ -726,13 +738,28 @@ export const appRouter = router({
             lte: endDate,
           },
         },
-        include: {
-          personnel: true,
-          camera: true,
+        select: {
+          id: true,
+          personName: true,
+          ppeMissing: true,
+          detectionTimestamp: true,
+          severity: true,
+          personnelId: true,
+          cameraId: true,
+          cameraName: true,
+          location: true,
+          violationReason: true,
+          camera: {
+            select: {
+              name: true,
+              location: true,
+            },
+          },
         },
         orderBy: {
           detectionTimestamp: 'desc',
         },
+        take: 1000, // Limit to 1000 records for performance
       });
 
       // Get today's violations
@@ -809,6 +836,8 @@ export const appRouter = router({
         monthViolations,
         violationsByPerson: Object.values(violationsByPerson),
         missingItemsCount,
+        totalCount, // Total violations in date range (may exceed 1000 limit)
+        isLimited: totalCount > 1000, // Flag if data is limited
         dateRange: {
           startDate,
           endDate,

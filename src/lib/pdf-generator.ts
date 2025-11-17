@@ -14,6 +14,8 @@ interface PPEViolationReportData {
     missingItems: string[];
   }>;
   missingItemsCount: Record<string, number>;
+  totalCount: number;
+  isLimited: boolean;
   dateRange: {
     startDate: Date;
     endDate: Date;
@@ -76,7 +78,8 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   const summaryData = [
-    ['Total Violations', data.violations.length.toString()],
+    ['Total Violations (Period)', data.totalCount.toString()],
+    ['Violations Analyzed', data.violations.length.toString()],
     ['Today\'s Violations', data.todayViolations.length.toString()],
     ['This Month\'s Violations', data.monthViolations.length.toString()],
     ['Personnel with Violations', data.violationsByPerson.length.toString()],
@@ -92,7 +95,23 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
     margin: { left: 14, right: 14 },
   });
 
-  yPosition = (doc as any).lastAutoTable.finalY + 12;
+  yPosition = (doc as any).lastAutoTable.finalY + 8;
+
+  // Add warning if data is limited
+  if (data.isLimited) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(231, 76, 60); // Red color
+    doc.text(
+      `⚠ Note: Report limited to ${data.violations.length} most recent violations out of ${data.totalCount} total violations for performance.`,
+      14,
+      yPosition
+    );
+    yPosition += 6;
+    doc.setTextColor(0); // Reset to black
+  }
+
+  yPosition += 6;
 
   // Most Frequently Missing PPE Items
   checkPageBreak(60);
@@ -220,7 +239,7 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
         timestamp,
         violation.personName,
         missing.join(', '),
-        violation.cameraName || 'N/A',
+        violation.camera?.name || 'N/A',
         violation.severity.toUpperCase(),
       ];
     });
