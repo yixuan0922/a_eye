@@ -238,7 +238,7 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
     doc.text('Detailed Violation Records', 14, yPosition);
     yPosition += 8;
 
-    const detailedData = data.violations.slice(0, 100).map(violation => {
+    const detailedData = data.violations.map(violation => {
       const missing = Array.isArray(violation.ppeMissing)
         ? violation.ppeMissing
         : JSON.parse(violation.ppeMissing);
@@ -275,17 +275,6 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
         }
       },
     });
-
-    if (data.violations.length > 100) {
-      yPosition = (doc as any).lastAutoTable.finalY + 8;
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'italic');
-      doc.text(
-        `* Showing first 100 of ${data.violations.length} total violations`,
-        14,
-        yPosition
-      );
-    }
   }
 
   // Detailed Zone Intrusion Records
@@ -299,7 +288,7 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
     doc.text('Detailed Zone Intrusion Records', 14, yPosition);
     yPosition += 8;
 
-    const zoneIntrusionData = data.zoneIntrusions.slice(0, 100).map(intrusion => {
+    const zoneIntrusionData = data.zoneIntrusions.map(intrusion => {
       // Extract person name and zone from description
       // Expected format: "PersonName detected in ZoneName"
       const descParts = intrusion.description.split(' detected in ');
@@ -338,31 +327,6 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
         }
       },
     });
-
-    if (data.zoneIntrusions.length > 100) {
-      yPosition = (doc as any).lastAutoTable.finalY + 8;
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'italic');
-      doc.text(
-        `* Showing first 100 of ${data.zoneIntrusions.length} total zone intrusions`,
-        14,
-        yPosition
-      );
-    }
-
-    // Add warning if zone intrusion data is limited
-    if (data.isZoneIntrusionsLimited) {
-      yPosition = (doc as any).lastAutoTable.finalY + 8;
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(231, 76, 60);
-      doc.text(
-        `⚠ Note: Report limited to ${data.zoneIntrusions.length} most recent zone intrusions out of ${data.zoneIntrusionsTotalCount} total.`,
-        14,
-        yPosition
-      );
-      doc.setTextColor(0);
-    }
   }
 
   // Footer on each page
