@@ -38,18 +38,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse detection timestamp
-    const timestamp = detectionTimestamp
-      ? new Date(detectionTimestamp)
-      : new Date();
-
-    if (isNaN(timestamp.getTime())) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid detectionTimestamp format",
-        },
-        { status: 400 }
-      );
+    // The Jetson sends timestamps in SGT, store as-is (treated as UTC in DB but actually SGT)
+    let timestamp: Date;
+    if (detectionTimestamp) {
+      const receivedTime = new Date(detectionTimestamp);
+      if (isNaN(receivedTime.getTime())) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Invalid detectionTimestamp format",
+          },
+          { status: 400 }
+        );
+      }
+      timestamp = receivedTime;
+    } else {
+      timestamp = new Date();
     }
 
     // Determine severity if not provided (default to high for Unknown personnel)

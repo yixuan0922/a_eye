@@ -2,88 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { S3Service } from "@/lib/s3";
 
-// Helper function to call Flask add_faces endpoint with multiple files
-async function addFacesToFlask(
-  personnelId: string,
-  name: string,
-  photoFiles: File[]
-): Promise<{ added: number; failed: number; results: any[]; errors: any[] }> {
-  try {
-    // Create FormData for multipart upload
-    const formData = new FormData();
-
-    // Add each photo file
-    photoFiles.forEach((file) => {
-      formData.append("files", file);
-    });
-
-    // Add person metadata
-    formData.append("name", name);
-    formData.append("personnelId", personnelId);
-
-    const response = await fetch(
-      "https://aeye001.biofuel.osiris.sg/api/add_faces",
-      {
-        method: "POST",
-        body: formData, // No Content-Type header - browser sets it with boundary
-      }
-    );
-
-    // Read response body once
-    const contentType = response.headers.get("content-type");
-    let responseBody;
-
-    if (contentType && contentType.includes("application/json")) {
-      try {
-        responseBody = await response.json();
-      } catch (parseError) {
-        const errorText = await response.text();
-        console.error("Flask add_faces JSON parse error:", errorText);
-        return {
-          added: 0,
-          failed: photoFiles.length,
-          results: [],
-          errors: [{ error: "Invalid JSON response", statusCode: response.status, response: errorText }],
-        };
-      }
-    } else {
-      // Not JSON, read as text
-      const errorText = await response.text();
-      console.error("Flask add_faces non-JSON response:", errorText);
-      return {
-        added: 0,
-        failed: photoFiles.length,
-        results: [],
-        errors: [{ error: "Non-JSON response from Flask API", statusCode: response.status, response: errorText }],
-      };
-    }
-
-    if (!response.ok && response.status !== 207) {
-      console.error("Flask add_faces error:", responseBody);
-      return {
-        added: 0,
-        failed: photoFiles.length,
-        results: [],
-        errors: [responseBody],
-      };
-    }
-
-    const result = responseBody;
-    console.log(
-      `Flask add_faces: ${result.added} added, ${result.failed} failed`
-    );
-    return result;
-  } catch (error) {
-    console.error("Error calling Flask add_faces endpoint:", error);
-    return {
-      added: 0,
-      failed: photoFiles.length,
-      results: [],
-      errors: [{ error: String(error) }],
-    };
-  }
-}
-
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -150,21 +68,7 @@ export async function POST(request: NextRequest) {
         console.log(
           `${photoUrls.length} photos uploaded to S3 for personnel ${newPersonnel.id}`
         );
-
-        // Call Flask add_faces endpoint with all photos at once
-        const flaskResult = await addFacesToFlask(
-          newPersonnel.id,
-          name,
-          photoFiles
-        );
-
-        console.log(
-          `Flask face recognition: ${flaskResult.added}/${photoFiles.length} photos successfully added`
-        );
-
-        if (flaskResult.errors.length > 0) {
-          console.warn("Flask face recognition errors:", flaskResult.errors);
-        }
+        // IMPORTANT: Do not send to Jetson/Flask here. We only add faces after admin approval.
       } catch (photoError) {
         console.error("Error uploading photos to S3:", photoError);
         // Don't fail the entire request if photo upload fails
