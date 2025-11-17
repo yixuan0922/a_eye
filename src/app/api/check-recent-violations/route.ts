@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendBulkTelegramNotification, formatPPEViolationMessage } from "@/lib/telegram";
 import { convertS3UrlToHttps } from "@/lib/s3";
+import { isWithinRecentTime } from "@/lib/time-utils";
 
 // Track which violations have already been notified to prevent duplicates
 // Store with timestamp to allow re-notification after a certain period
@@ -46,12 +47,10 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const recentViolations = [];
 
-    // Filter violations that are within 10 seconds and haven't been notified yet
+    // Filter violations that are within 1 minute of current SG time and haven't been notified yet
     for (const violation of allViolations) {
-      const timeDiffSeconds = (now.getTime() - new Date(violation.detectionTimestamp).getTime()) / 1000;
-
-      // Check if violation is recent (within 10 seconds)
-      if (timeDiffSeconds <= 10) {
+      // Use the Singapore time check to verify if the violation is within 60 seconds
+      if (isWithinRecentTime(violation.detectionTimestamp, 60)) {
         // Check if we've already notified about this violation
         const lastNotified = notifiedViolations.get(violation.id);
 

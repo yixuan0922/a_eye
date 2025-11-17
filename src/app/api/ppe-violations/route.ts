@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendBulkTelegramNotification, formatPPEViolationMessage } from "@/lib/telegram";
 import { convertS3UrlToHttps } from "@/lib/s3";
+import { isWithinRecentTime } from "@/lib/time-utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -130,49 +131,54 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Send Telegram notification to all users who have linked their Telegram accounts
-    // Fetch list of linked users from Telegram bot
-    let adminUserIds: string[] = [];
+    // Send Telegram notification only if detection is within 1 minute of current SG time
+    // Check if the detection timestamp is within 60 seconds before/after current Singapore time
+    if (isWithinRecentTime(ppeViolation.detectionTimestamp, 60)) {
+      // Fetch list of linked users from Telegram bot
+      let adminUserIds: string[] = [];
 
-    try {
-      const TELEGRAM_BOT_URL = process.env.TELEGRAM_BOT_URL || 'http://localhost:3001';
-      const usersResponse = await fetch(`${TELEGRAM_BOT_URL}/api/users`);
+      try {
+        const TELEGRAM_BOT_URL = process.env.TELEGRAM_BOT_URL || 'http://localhost:3001';
+        const usersResponse = await fetch(`${TELEGRAM_BOT_URL}/api/users`);
 
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json();
-        // Get all user IDs who have linked their Telegram accounts
-        adminUserIds = usersData.users?.map((u: any) => u.userId) || [];
-        console.log(`📱 Found ${adminUserIds.length} users with linked Telegram accounts`);
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          // Get all user IDs who have linked their Telegram accounts
+          adminUserIds = usersData.users?.map((u: any) => u.userId) || [];
+          console.log(`📱 Found ${adminUserIds.length} users with linked Telegram accounts`);
+        }
+      } catch (error) {
+        console.error('Failed to fetch linked Telegram users:', error);
       }
-    } catch (error) {
-      console.error('Failed to fetch linked Telegram users:', error);
-    }
 
-    if (adminUserIds.length > 0) {
-      const message = formatPPEViolationMessage({
-        personName: ppeViolation.personName,
-        location: ppeViolation.location || undefined,
-        cameraName: ppeViolation.cameraName,
-        ppeMissing: ppeViolation.ppeMissing,
-        severity: ppeViolation.severity,
-        detectionTimestamp: ppeViolation.detectionTimestamp,
-      });
+      if (adminUserIds.length > 0) {
+        const message = formatPPEViolationMessage({
+          personName: ppeViolation.personName,
+          location: ppeViolation.location || undefined,
+          cameraName: ppeViolation.cameraName,
+          ppeMissing: ppeViolation.ppeMissing,
+          severity: ppeViolation.severity,
+          detectionTimestamp: ppeViolation.detectionTimestamp,
+        });
 
-      // Send notification without blocking the response
-      // Convert S3 URL to HTTPS if present
-      const imageUrl = ppeViolation.snapshotUrl
-        ? convertS3UrlToHttps(ppeViolation.snapshotUrl) ?? undefined
-        : undefined;
+        // Send notification without blocking the response
+        // Convert S3 URL to HTTPS if present
+        const imageUrl = ppeViolation.snapshotUrl
+          ? convertS3UrlToHttps(ppeViolation.snapshotUrl) ?? undefined
+          : undefined;
 
-      sendBulkTelegramNotification({
-        userIds: adminUserIds,
-        message,
-        type: 'ppe_violation',
-        imageUrl
-      }).catch(error => {
-        console.error('Failed to send Telegram notification:', error);
-        // Don't fail the request if notification fails
-      });
+        sendBulkTelegramNotification({
+          userIds: adminUserIds,
+          message,
+          type: 'ppe_violation',
+          imageUrl
+        }).catch(error => {
+          console.error('Failed to send Telegram notification:', error);
+          // Don't fail the request if notification fails
+        });
+      }
+    } else {
+      console.log(`⏭️  Skipping notification - detection timestamp outside 60-second window`);
     }
 
     return NextResponse.json({
