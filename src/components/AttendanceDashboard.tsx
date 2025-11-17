@@ -154,7 +154,7 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
+              onSelect={(date: Date | undefined) => date && setSelectedDate(date)}
               className="rounded-md border"
             />
           </CardContent>
@@ -253,7 +253,7 @@ export default function AttendanceDashboard({ siteId }: AttendanceDashboardProps
                 <Calendar
                   mode="range"
                   selected={{ from: dateRange.start, to: dateRange.end }}
-                  onSelect={(range) => {
+                  onSelect={(range: { from: Date | undefined; to: Date | undefined } | undefined) => {
                     if (range?.from && range?.to) {
                       setDateRange({ start: range.from, end: range.to });
                     }
