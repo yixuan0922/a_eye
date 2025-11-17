@@ -138,7 +138,7 @@ export default function Signup() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-security-blue mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
           <p className="mt-2 text-gray-600">Loading site information...</p>
         </div>
       </div>
@@ -180,7 +180,7 @@ export default function Signup() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-4">
-          <div className="w-16 h-16 bg-security-blue rounded-full flex items-center justify-center mx-auto">
+          <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto">
             <UserPlus className="text-white text-2xl" />
           </div>
           <div>
@@ -301,7 +301,7 @@ export default function Signup() {
 
             <Button
               type="submit"
-              className="w-full bg-security-blue hover:bg-blue-700"
+              className="w-full bg-black text-white hover:bg-gray-800"
               disabled={signupMutation.isPending || !name || !role}
             >
               {signupMutation.isPending

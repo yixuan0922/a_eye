@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,9 @@ type FilterType = "all" | "pending" | "authorized";
 export default function PersonnelManagement({
   siteId,
 }: PersonnelManagementProps) {
+  const router = useRouter();
+  const params = useParams();
+  const siteSlug = (params?.siteSlug as string) || "";
   const { toast } = useToast();
   const [filter, setFilter] = useState<FilterType>("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -200,7 +204,10 @@ export default function PersonnelManagement({
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Button className="bg-security-blue hover:bg-blue-700">
+          <Button
+            className="bg-black text-white hover:bg-gray-800"
+            onClick={() => router.push(`/${siteSlug}/signup`)}
+          >
             <UserPlus className="w-4 h-4 mr-2" />
             Add Personnel
           </Button>
@@ -345,7 +352,10 @@ export default function PersonnelManagement({
               ? "No personnel registered for this site"
               : `No ${filter} personnel found`}
           </p>
-          <Button className="bg-security-blue hover:bg-blue-700">
+          <Button
+            className="bg-black text-white hover:bg-gray-800"
+            onClick={() => router.push(`/${siteSlug}/signup`)}
+          >
             <UserPlus className="w-4 h-4 mr-2" />
             Add Personnel
           </Button>

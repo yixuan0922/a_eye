@@ -216,7 +216,7 @@ export default function Home() {
                 <Button
                   variant="outline"
                   size="lg"
-                  className="border-white/20 text-white hover:bg-white/10 px-8 py-6 text-lg backdrop-blur-sm"
+                  className="border-white/20 text-black hover:text-black hover:bg-white/10 px-8 py-6 text-lg backdrop-blur-sm"
                   onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
                 >
                   Learn More
@@ -301,7 +301,7 @@ export default function Home() {
                 icon: ScanFace,
                 title: 'Facial Recognition',
                 description: 'Advanced face detection and recognition for automated personnel tracking and access control.',
-                color: 'gray-800'
+                color: 'black'
               },
               {
                 icon: HardHat,
@@ -319,7 +319,7 @@ export default function Home() {
                 icon: AlertTriangle,
                 title: 'Unauthorized Access Alerts',
                 description: 'Real-time detection and alerts for unrecognized individuals entering restricted areas.',
-                color: 'gray-800'
+                color: 'black'
               },
               {
                 icon: BarChart3,

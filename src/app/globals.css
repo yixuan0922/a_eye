@@ -119,8 +119,7 @@
 }
 
 .personnel-filter-btn.active {
-  @apply text-white;
-  background-color: var(--security-blue);
+  @apply text-white bg-black;
 }
 
 /* Violation alert animation */
@@ -129,10 +128,12 @@
 }
 
 @keyframes violation-pulse {
+
   0%,
   100% {
     background-color: var(--violation-red);
   }
+
   50% {
     background-color: hsl(357, 56%, 57%);
   }
@@ -169,6 +170,7 @@
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
@@ -180,9 +182,10 @@
     opacity: 0;
     transform: translate(-72%, -62%) scale(0.5);
   }
+
   100% {
     opacity: 1;
-    transform: translate(-50%,-40%) scale(1);
+    transform: translate(-50%, -40%) scale(1);
   }
 }
 

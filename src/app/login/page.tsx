@@ -17,8 +17,13 @@ export default function Login() {
   const [email, setEmail] = useState("admin@changi01");
   const [password, setPassword] = useState("admin123");
 
-  const loginMutation = trpc.login.useMutation({
-    onSuccess: (data) => {
+  const loginMutation = trpc.login.useMutation();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const data = await loginMutation.mutateAsync({ siteCode, email, password });
+
       // Store user session in localStorage
       localStorage.setItem('currentUser', JSON.stringify({
         id: data.user.id,
@@ -32,27 +37,24 @@ export default function Login() {
         title: "Login Successful",
         description: `Welcome to ${data.site.name}`,
       });
-      router.push(`/${data.site.code}`);
-    },
-    onError: (error) => {
+
+      // Use replace to avoid needing back navigation and ensure single navigation
+      router.replace(`/${data.site.code}`);
+    } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: error.message || "Invalid credentials",
+        description: error?.message || "Invalid credentials",
         variant: "destructive",
       });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    loginMutation.mutate({ siteCode, email, password });
+    }
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 flex items-center justify-center px-4">
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-black via-gray-900 to-gray-800 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+      <Card className="w-full max-w-md shadow-lg relative z-10">
         <CardHeader className="text-center space-y-4">
-          <div className="w-16 h-16 bg-security-blue rounded-full flex items-center justify-center mx-auto">
+          <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto">
             <Shield className="text-white w-8 h-8" />
           </div>
           <div className="space-y-2">
@@ -101,7 +103,7 @@ export default function Login() {
             </div>
             <Button
               type="submit"
-              className="w-full bg-security-blue hover:bg-security-blue/90"
+              className="w-full bg-black text-white hover:bg-gray-800"
               disabled={loginMutation.isPending}
             >
               {loginMutation.isPending ? (
