@@ -31,7 +31,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  // Check for recent violations and send Telegram notifications
+  // Check for recent PPE violations and send Telegram notifications
   useEffect(() => {
     const checkRecentViolations = async () => {
       try {
@@ -41,7 +41,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
           body: JSON.stringify({ siteId }),
         });
       } catch (error) {
-        console.error('Failed to check recent violations:', error);
+        console.error('Failed to check recent PPE violations:', error);
       }
     };
 
@@ -54,25 +54,25 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     return () => clearInterval(interval);
   }, [siteId]);
 
-  // Check for recent violations and send Telegram notifications
+  // Check for recent zone intrusions and send Telegram notifications
   useEffect(() => {
-    const checkRecentViolations = async () => {
+    const checkRecentZoneIntrusions = async () => {
       try {
-        await fetch('/api/check-recent-violations', {
+        await fetch('/api/check-recent-zone-intrusions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ siteId }),
         });
       } catch (error) {
-        console.error('Failed to check recent violations:', error);
+        console.error('Failed to check recent zone intrusions:', error);
       }
     };
 
     // Check immediately on mount
-    checkRecentViolations();
+    checkRecentZoneIntrusions();
 
     // Then check every 5 seconds
-    const interval = setInterval(checkRecentViolations, 5000);
+    const interval = setInterval(checkRecentZoneIntrusions, 5000);
 
     return () => clearInterval(interval);
   }, [siteId]);
