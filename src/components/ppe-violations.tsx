@@ -549,6 +549,16 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     // Convert S3 URL to HTTPS URL
     const imageUrl = convertS3UrlToHttps(violation.imageUrl);
 
+    // Debug logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Restricted Zone Violation:', {
+        id: violation.id,
+        rawImageUrl: violation.imageUrl,
+        convertedImageUrl: imageUrl,
+        description: violation.description
+      });
+    }
+
     // Extract person name from description if available
     // Expected format: "PersonName detected in ZoneName"
     const personName = violation.description?.split(' detected in ')[0] || 'Unknown Person';
