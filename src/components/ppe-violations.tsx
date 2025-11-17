@@ -545,65 +545,80 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     );
   };
 
-  const renderRestrictedZoneViolation = (violation: any) => (
-    <Card
-      key={violation.id}
-      className="p-4 hover:shadow-lg transition-shadow cursor-pointer"
-      onClick={() => handleViewDetails(violation)}
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex items-start space-x-4">
-          <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
-            {violation.imageUrl ? (
-              <img
-                src={violation.imageUrl}
-                alt="Violation"
-                className="w-full h-full rounded-lg object-cover"
-              />
-            ) : (
-              <MapPin className="w-8 h-8 text-gray-400" />
-            )}
-          </div>
+  const renderRestrictedZoneViolation = (violation: any) => {
+    // Convert S3 URL to HTTPS URL
+    const imageUrl = convertS3UrlToHttps(violation.imageUrl);
 
-          <div className="flex-1">
-            <div className="flex items-center space-x-2 mb-2">
-              <h3 className="font-semibold text-gray-900">
-                {violation.type.replace(/_/g, " ").toUpperCase()}
-              </h3>
-              <Badge className={getSeverityColor(violation.severity)}>
-                {violation.severity.charAt(0).toUpperCase() +
-                  violation.severity.slice(1)}
-              </Badge>
-            </div>
+    // Extract person name from description if available
+    // Expected format: "PersonName detected in ZoneName"
+    const personName = violation.description?.split(' detected in ')[0] || 'Unknown Person';
+    const zoneName = violation.description?.split(' detected in ')[1] || violation.location;
 
-            <p className="text-sm text-gray-600 mb-2">
-              {violation.description}
-            </p>
-
-            <div className="flex items-center space-x-4 text-sm text-gray-500">
-              <span>{formatTime(violation.createdAt)}</span>
-              {violation.location && (
-                <span>Location: {violation.location}</span>
+    return (
+      <Card
+        key={violation.id}
+        className="p-4 hover:shadow-lg transition-shadow cursor-pointer"
+        onClick={() => handleViewDetails(violation)}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-start space-x-4">
+            <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt="Restricted Zone Violation"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <MapPin className="w-8 h-8 text-gray-400" />
               )}
             </div>
+
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-2">
+                <h3 className="font-semibold text-gray-900">
+                  {personName}
+                </h3>
+                <Badge className={getSeverityColor(violation.severity)}>
+                  {violation.severity.charAt(0).toUpperCase() +
+                    violation.severity.slice(1)}
+                </Badge>
+              </div>
+
+              <p className="text-sm text-red-600 mb-1">
+                <span className="font-medium">Zone:</span> {zoneName}
+              </p>
+
+              <div className="flex flex-col space-y-1 text-sm text-gray-500">
+                <div className="flex items-center space-x-4">
+                  <span>{formatTime(violation.createdAt)}</span>
+                  {violation.camera?.name && (
+                    <span>Camera: {violation.camera.name}</span>
+                  )}
+                </div>
+                {violation.location && (
+                  <span>Location: {violation.location}</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {!violation.resolvedAt && violation.status === "active" && (
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={(e) => handleResolveViolation(violation.id, e)}
+                disabled={resolveViolationMutation.isPending}
+              >
+                <CheckCircle className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </div>
-
-        <div className="flex items-center space-x-2">
-          {!violation.resolvedAt && violation.status === "active" && (
-            <Button
-              size="sm"
-              className="bg-green-600 hover:bg-green-700 text-white"
-              onClick={(e) => handleResolveViolation(violation.id, e)}
-              disabled={resolveViolationMutation.isPending}
-            >
-              <CheckCircle className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
+      </Card>
+    );
+  };
 
   const renderPagination = (currentPage: number, totalCount: number, onPageChange: (page: number) => void) => {
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
@@ -811,10 +826,10 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left Side - Snapshot Image */}
               <div className="flex flex-col">
-                {selectedViolation.snapshotUrl ? (
+                {(selectedViolation.snapshotUrl || selectedViolation.imageUrl) ? (
                   <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ height: '500px' }}>
                     <img
-                      src={convertS3UrlToHttps(selectedViolation.snapshotUrl) || ''}
+                      src={convertS3UrlToHttps(selectedViolation.snapshotUrl || selectedViolation.imageUrl) || ''}
                       alt="Violation Snapshot"
                       className="w-full h-full object-contain"
                     />

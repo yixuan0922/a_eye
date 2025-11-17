@@ -5,7 +5,7 @@
 
 const TELEGRAM_BOT_URL = process.env.TELEGRAM_BOT_URL || 'http://localhost:3001';
 
-export type NotificationType = 'violation' | 'ppe_violation' | 'unauthorized' | 'success';
+export type NotificationType = 'violation' | 'ppe_violation' | 'unauthorized' | 'zone_intrusion' | 'success';
 
 interface SendNotificationParams {
   userId: string;
