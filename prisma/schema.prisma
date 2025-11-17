@@ -29,16 +29,6 @@ model Site {
 }
 
 model User {
-  id             String          @id @default(cuid())
-  email          String          @unique
-  name           String?
-  role           String          @default("admin")
-  siteId         String
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  telegram_links telegram_links?
-  site           Site            @relation(fields: [siteId], references: [id])
   id           String        @id @default(cuid())
   email        String        @unique
   name         String?
@@ -237,16 +227,3 @@ model UnauthorizedAccess {
   @@map("unauthorized_access")
 }
 
-model telegram_links {
-  id               String   @id
-  userId           String   @unique
-  telegramUserId   String   @unique
-  telegramChatId   String
-  telegramUsername String?
-  linkedAt         DateTime @default(now())
-  updatedAt        DateTime
-  users            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([telegramUserId])
-  @@index([userId])
-}
