@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Expand,
   AlertTriangle,
@@ -53,6 +54,7 @@ export default function CameraGrid({ siteId }: CameraGridProps) {
   const [displayMode, setDisplayMode] = useState<{
     [key: string]: "fit" | "fill";
   }>({});
+  const [showCameraStreams, setShowCameraStreams] = useState(false);
 
   // Track face API status changes
   useEffect(() => {
@@ -284,12 +286,34 @@ export default function CameraGrid({ siteId }: CameraGridProps) {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Camera Network
-        </h2>
-        <p className="text-gray-600">
-          Real-time surveillance monitoring with face recognition
-        </p>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Camera Network
+            </h2>
+            <p className="text-gray-600">
+              Real-time surveillance monitoring with face recognition
+            </p>
+          </div>
+
+          {/* Camera Stream Toggle */}
+          <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
+            <div className="text-sm">
+              <p className="font-medium text-gray-900">Camera Streams</p>
+              <p className="text-xs text-gray-500">
+                {showCameraStreams ? "Enabled" : "Disabled"}
+              </p>
+            </div>
+            <Switch
+              checked={showCameraStreams}
+              onCheckedChange={(checked) => {
+                setShowCameraStreams(checked);
+                // TODO: Add API call here to toggle camera streams on backend
+                console.log("Camera streams toggled:", checked);
+              }}
+            />
+          </div>
+        </div>
 
         {/* System Status */}
         <div className="mt-2 p-3 bg-blue-50 rounded-md text-sm">
