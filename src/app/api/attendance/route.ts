@@ -4,14 +4,14 @@ import { db } from "@/lib/db";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { siteId, personnelId, cameraId, confidence, timestamp } = body;
+    const { siteId, personnelId, confidence, timestamp } = body;
 
     // Validate required fields
-    if (!siteId || !personnelId || !cameraId) {
+    if (!siteId || !personnelId) {
       return NextResponse.json(
         {
           success: false,
-          message: "Missing required fields: siteId, personnelId, cameraId",
+          message: "Missing required fields: siteId, personnelId",
         },
         { status: 400 }
       );
@@ -55,7 +55,6 @@ export async function POST(request: NextRequest) {
       data: {
         siteId,
         personnelId,
-        cameraId,
         confidence: confidenceScore,
         timestamp: now,
       },

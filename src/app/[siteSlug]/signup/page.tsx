@@ -120,17 +120,18 @@ export default function Signup() {
       }
       validFiles.push(file);
     }
-    
-    // Limit to maximum 5 photos
-    if (validFiles.length > 5) {
+
+    // Append to existing selections and limit to maximum 5 photos
+    const combined = [...photos, ...validFiles];
+    if (combined.length > 5) {
       toast({
         title: "Too Many Photos",
         description: "Maximum 5 photos allowed",
         variant: "destructive",
       });
-      setPhotos(validFiles.slice(0, 5));
+      setPhotos(combined.slice(0, 5));
     } else {
-      setPhotos(validFiles);
+      setPhotos(combined);
     }
   };
 
