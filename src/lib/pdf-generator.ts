@@ -16,6 +16,11 @@ interface PPEViolationReportData {
   missingItemsCount: Record<string, number>;
   totalCount: number;
   isLimited: boolean;
+  zoneIntrusions: any[];
+  todayZoneIntrusions: any[];
+  monthZoneIntrusions: any[];
+  zoneIntrusionsTotalCount: number;
+  isZoneIntrusionsLimited: boolean;
   dateRange: {
     startDate: Date;
     endDate: Date;
@@ -47,7 +52,7 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
   // Title
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.text('PPE Violation Report', pageWidth / 2, yPosition, { align: 'center' });
+  doc.text('Safety Violations Report', pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 10;
 
   // Site Information
@@ -78,11 +83,15 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   const summaryData = [
-    ['Total Violations (Period)', data.totalCount.toString()],
-    ['Violations Analyzed', data.violations.length.toString()],
-    ['Today\'s Violations', data.todayViolations.length.toString()],
-    ['This Month\'s Violations', data.monthViolations.length.toString()],
-    ['Personnel with Violations', data.violationsByPerson.length.toString()],
+    ['Total PPE Violations (Period)', data.totalCount.toString()],
+    ['PPE Violations Analyzed', data.violations.length.toString()],
+    ['Total Zone Intrusions (Period)', data.zoneIntrusionsTotalCount.toString()],
+    ['Zone Intrusions Analyzed', data.zoneIntrusions.length.toString()],
+    ['Today\'s PPE Violations', data.todayViolations.length.toString()],
+    ['Today\'s Zone Intrusions', data.todayZoneIntrusions.length.toString()],
+    ['This Month\'s PPE Violations', data.monthViolations.length.toString()],
+    ['This Month\'s Zone Intrusions', data.monthZoneIntrusions.length.toString()],
+    ['Personnel with PPE Violations', data.violationsByPerson.length.toString()],
   ];
 
   autoTable(doc, {
@@ -279,6 +288,83 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
     }
   }
 
+  // Detailed Zone Intrusion Records
+  if (data.zoneIntrusions.length > 0) {
+    // Add a new page for zone intrusion records
+    doc.addPage();
+    yPosition = 20;
+
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Detailed Zone Intrusion Records', 14, yPosition);
+    yPosition += 8;
+
+    const zoneIntrusionData = data.zoneIntrusions.slice(0, 100).map(intrusion => {
+      // Extract person name and zone from description
+      // Expected format: "PersonName detected in ZoneName"
+      const descParts = intrusion.description.split(' detected in ');
+      const personName = descParts[0] || 'Unknown';
+      const zoneName = descParts[1] || intrusion.location || 'Unknown Zone';
+      const timestamp = new Date(intrusion.createdAt).toLocaleString();
+
+      return [
+        timestamp,
+        personName,
+        zoneName,
+        intrusion.camera?.name || intrusion.location || 'N/A',
+        intrusion.severity.toUpperCase(),
+      ];
+    });
+
+    autoTable(doc, {
+      startY: yPosition,
+      head: [['Time', 'Person', 'Restricted Zone', 'Location/Camera', 'Severity']],
+      body: zoneIntrusionData,
+      theme: 'grid',
+      headStyles: { fillColor: [156, 39, 176], textColor: 255, fontStyle: 'bold' },
+      styles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 35 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 40 },
+        4: { cellWidth: 25, halign: 'center' },
+      },
+      margin: { left: 14, right: 14 },
+      didDrawCell: (data) => {
+        // Highlight high severity intrusions
+        if (data.column.index === 4 && data.cell.text[0] === 'HIGH') {
+          doc.setFillColor(231, 76, 60);
+        }
+      },
+    });
+
+    if (data.zoneIntrusions.length > 100) {
+      yPosition = (doc as any).lastAutoTable.finalY + 8;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'italic');
+      doc.text(
+        `* Showing first 100 of ${data.zoneIntrusions.length} total zone intrusions`,
+        14,
+        yPosition
+      );
+    }
+
+    // Add warning if zone intrusion data is limited
+    if (data.isZoneIntrusionsLimited) {
+      yPosition = (doc as any).lastAutoTable.finalY + 8;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(231, 76, 60);
+      doc.text(
+        `⚠ Note: Report limited to ${data.zoneIntrusions.length} most recent zone intrusions out of ${data.zoneIntrusionsTotalCount} total.`,
+        14,
+        yPosition
+      );
+      doc.setTextColor(0);
+    }
+  }
+
   // Footer on each page
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
@@ -300,6 +386,6 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
   }
 
   // Save the PDF
-  const fileName = `PPE_Violation_Report_${site.code}_${new Date().toISOString().split('T')[0]}.pdf`;
+  const fileName = `Safety_Violations_Report_${site.code}_${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(fileName);
 };

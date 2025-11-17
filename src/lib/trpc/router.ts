@@ -830,6 +830,61 @@ export const appRouter = router({
         });
       });
 
+      // Get zone intrusions (restricted zone violations)
+      const zoneIntrusionsTotalCount = await db.violation.count({
+        where: {
+          siteId: input.siteId,
+          type: "restricted_zone",
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      });
+
+      const zoneIntrusions = await db.violation.findMany({
+        where: {
+          siteId: input.siteId,
+          type: "restricted_zone",
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        select: {
+          id: true,
+          description: true,
+          createdAt: true,
+          severity: true,
+          location: true,
+          cameraId: true,
+          personnelId: true,
+          camera: {
+            select: {
+              name: true,
+              location: true,
+            },
+          },
+          personnel: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 1000,
+      });
+
+      const todayZoneIntrusions = zoneIntrusions.filter(v =>
+        v.createdAt >= todayStart && v.createdAt <= todayEnd
+      );
+
+      const monthZoneIntrusions = zoneIntrusions.filter(v =>
+        v.createdAt >= monthStart && v.createdAt <= monthEnd
+      );
+
       return {
         violations,
         todayViolations,
@@ -838,6 +893,11 @@ export const appRouter = router({
         missingItemsCount,
         totalCount, // Total violations in date range (may exceed 1000 limit)
         isLimited: totalCount > 1000, // Flag if data is limited
+        zoneIntrusions,
+        todayZoneIntrusions,
+        monthZoneIntrusions,
+        zoneIntrusionsTotalCount,
+        isZoneIntrusionsLimited: zoneIntrusionsTotalCount > 1000,
         dateRange: {
           startDate,
           endDate,
