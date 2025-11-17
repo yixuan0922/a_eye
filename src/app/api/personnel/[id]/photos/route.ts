@@ -1,46 +1,46 @@
-import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/db"
-import { S3Service } from "@/lib/s3"
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { S3Service } from "@/lib/s3";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params
-    const formData = await request.formData()
-    const photos = formData.getAll("photos") as File[]
+    const { id } = params;
+    const formData = await request.formData();
+    const photos = formData.getAll("photos") as File[];
 
     if (!photos || photos.length === 0) {
       return NextResponse.json(
         { error: "No photos provided" },
         { status: 400 }
-      )
+      );
     }
 
     // Get current personnel to check existing photos
     const personnel = await prisma.personnel.findUnique({
       where: { id },
-    })
+    });
 
     if (!personnel) {
       return NextResponse.json(
         { error: "Personnel not found" },
         { status: 404 }
-      )
+      );
     }
 
     // Get existing photos array
-    const existingPhotos = (personnel.photos as string[]) || []
+    const existingPhotos = (personnel.photos as string[]) || [];
 
     // Upload new photos to S3
     const newPhotoUrls = await S3Service.uploadMultiplePersonnelPhotos(
       photos,
       id
-    )
+    );
 
     // Combine with existing photos
-    const allPhotos = [...existingPhotos, ...newPhotoUrls]
+    const allPhotos = [...existingPhotos, ...newPhotoUrls];
 
     // Update personnel record with new photos array
     const updatedPersonnel = await prisma.personnel.update({
@@ -49,7 +49,7 @@ export async function POST(
         photos: allPhotos,
         updatedAt: new Date(),
       },
-    })
+    });
 
     // If not yet authorized, do NOT push to Jetson/Flask.
     if (!personnel.isAuthorized) {
@@ -57,37 +57,41 @@ export async function POST(
         personnel: updatedPersonnel,
         newPhotos: newPhotoUrls,
         note: "Photos stored in S3. Will sync to Jetson upon approval.",
-      })
+      });
     }
 
     // Call Flask API to update face recognition with new photos (only for authorized personnel)
-    const flaskUrl = process.env.FLASK_API_URL || "http://localhost:5001"
+    const addFacesUrl =
+      process.env.FLASK_ADD_FACES_URL ||
+      "https://aeye001.biofuel.osiris.sg/api/add_faces";
     try {
-      const flaskFormData = new FormData()
-      flaskFormData.append("person_id", id)
-      photos.forEach((photo) => {
-        flaskFormData.append("images", photo)
-      })
+      const flaskFormData = new FormData();
+      // Keep field names consistent with approval flow
+      flaskFormData.append("name", personnel.name || "");
+      flaskFormData.append("personnelId", id);
+      photos.forEach((photo, index) => {
+        flaskFormData.append("files", photo, `photo_${index}.jpg`);
+      });
 
-      await fetch(`${flaskUrl}/api/add_faces`, {
+      await fetch(addFacesUrl, {
         method: "POST",
         body: flaskFormData,
-      })
+      });
     } catch (flaskError) {
-      console.error("Error updating face recognition:", flaskError)
+      console.error("Error updating face recognition:", flaskError);
       // Continue even if Flask fails
     }
 
     return NextResponse.json({
       personnel: updatedPersonnel,
       newPhotos: newPhotoUrls,
-    })
+    });
   } catch (error) {
-    console.error("Error adding photos:", error)
+    console.error("Error adding photos:", error);
     return NextResponse.json(
       { error: "Failed to add photos" },
       { status: 500 }
-    )
+    );
   }
 }
 
@@ -96,40 +100,40 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params
-    const body = await request.json()
-    const { photoUrl } = body
+    const { id } = params;
+    const body = await request.json();
+    const { photoUrl } = body;
 
     if (!photoUrl) {
       return NextResponse.json(
         { error: "Photo URL is required" },
         { status: 400 }
-      )
+      );
     }
 
     // Get current personnel
     const personnel = await prisma.personnel.findUnique({
       where: { id },
-    })
+    });
 
     if (!personnel) {
       return NextResponse.json(
         { error: "Personnel not found" },
         { status: 404 }
-      )
+      );
     }
 
     // Get existing photos array
-    const existingPhotos = (personnel.photos as string[]) || []
+    const existingPhotos = (personnel.photos as string[]) || [];
 
     // Remove the photo URL from array
-    const updatedPhotos = existingPhotos.filter((url) => url !== photoUrl)
+    const updatedPhotos = existingPhotos.filter((url) => url !== photoUrl);
 
     // Delete from S3
     try {
-      await S3Service.deleteMultipleFiles([photoUrl])
+      await S3Service.deleteMultipleFiles([photoUrl]);
     } catch (s3Error) {
-      console.error("Error deleting from S3:", s3Error)
+      console.error("Error deleting from S3:", s3Error);
       // Continue even if S3 deletion fails
     }
 
@@ -140,17 +144,17 @@ export async function DELETE(
         photos: updatedPhotos,
         updatedAt: new Date(),
       },
-    })
+    });
 
     return NextResponse.json({
       personnel: updatedPersonnel,
       deletedPhoto: photoUrl,
-    })
+    });
   } catch (error) {
-    console.error("Error deleting photo:", error)
+    console.error("Error deleting photo:", error);
     return NextResponse.json(
       { error: "Failed to delete photo" },
       { status: 500 }
-    )
+    );
   }
 }
