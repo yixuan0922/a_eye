@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatSingaporeTimestamp } from './time-utils';
 
 interface PPEViolationReportData {
   violations: any[];
@@ -70,7 +71,17 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
   const endDateStr = data.dateRange.endDate.toLocaleDateString();
   doc.text(`Report Period: ${startDateStr} - ${endDateStr}`, 14, yPosition);
   yPosition += 6;
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, yPosition);
+
+  // Format generation timestamp using Singapore timezone
+  const generatedTime = new Date();
+  const year = generatedTime.getFullYear();
+  const month = String(generatedTime.getMonth() + 1).padStart(2, '0');
+  const day = String(generatedTime.getDate()).padStart(2, '0');
+  const hours = String(generatedTime.getHours()).padStart(2, '0');
+  const minutes = String(generatedTime.getMinutes()).padStart(2, '0');
+  const seconds = String(generatedTime.getSeconds()).padStart(2, '0');
+  const generatedTimeStr = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  doc.text(`Generated: ${generatedTimeStr}`, 14, yPosition);
   yPosition += 12;
 
   // Executive Summary
@@ -242,10 +253,12 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
       const missing = Array.isArray(violation.ppeMissing)
         ? violation.ppeMissing
         : JSON.parse(violation.ppeMissing);
-      const timestamp = new Date(violation.detectionTimestamp).toLocaleString();
+
+      // Format timestamp using Singapore timezone (same as Telegram notifications)
+      const formattedTime = formatSingaporeTimestamp(violation.detectionTimestamp);
 
       return [
-        timestamp,
+        formattedTime,
         violation.personName,
         missing.join(', '),
         violation.camera?.name || 'N/A',
@@ -294,10 +307,12 @@ export const generatePPEViolationReport = (data: PPEViolationReportData, site: S
       const descParts = intrusion.description.split(' detected in ');
       const personName = descParts[0] || 'Unknown';
       const zoneName = descParts[1] || intrusion.location || 'Unknown Zone';
-      const timestamp = new Date(intrusion.createdAt).toLocaleString();
+
+      // Format timestamp using Singapore timezone (same as Telegram notifications)
+      const formattedTime = formatSingaporeTimestamp(intrusion.createdAt);
 
       return [
-        timestamp,
+        formattedTime,
         personName,
         zoneName,
         intrusion.camera?.name || intrusion.location || 'N/A',

@@ -3,6 +3,8 @@
  * Sends notifications to users via Telegram bot
  */
 
+import { formatSingaporeTimestamp } from './time-utils';
+
 const TELEGRAM_BOT_URL = process.env.TELEGRAM_BOT_URL || 'http://localhost:3001';
 
 export type NotificationType = 'violation' | 'ppe_violation' | 'unauthorized' | 'zone_intrusion' | 'success';
@@ -112,10 +114,8 @@ export function formatPPEViolationMessage(violation: {
     ? violation.ppeMissing.join(', ')
     : JSON.stringify(violation.ppeMissing);
 
-  // Format: YYYY-MM-DD HH:MM:SS (removing the Z and milliseconds)
-  const timestamp = new Date(violation.detectionTimestamp);
-  const isoString = timestamp.toISOString();
-  const formattedTime = isoString.replace('T', ' ').replace(/\.\d{3}Z$/, '');
+  // Format: YYYY-MM-DD HH:MM:SS using Singapore timezone
+  const formattedTime = formatSingaporeTimestamp(violation.detectionTimestamp);
 
   return `
 🦺 PPE VIOLATION DETECTED
@@ -190,11 +190,9 @@ export function formatZoneIntrusionMessage(intrusion: {
   detectionTimestamp: Date;
 }): string {
   const severityEmoji = intrusion.severity === "high" ? "🚨" : intrusion.severity === "medium" ? "⚠️" : "ℹ️";
-  const timestamp = new Date(intrusion.detectionTimestamp);
 
-  // Format: YYYY-MM-DD HH:MM:SS (removing the Z and milliseconds)
-  const isoString = timestamp.toISOString();
-  const formattedTime = isoString.replace('T', ' ').replace(/\.\d{3}Z$/, '');
+  // Format: YYYY-MM-DD HH:MM:SS using Singapore timezone
+  const formattedTime = formatSingaporeTimestamp(intrusion.detectionTimestamp);
 
   return `
 ${severityEmoji} RESTRICTED ZONE INTRUSION

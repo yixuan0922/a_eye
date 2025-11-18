@@ -82,10 +82,32 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
     toast.loading("Generating PPE Violation Report...", { id: "report-generation" });
 
     try {
+      // Create dates that match the database timezone format
+      // Database stores Singapore time with Z marker, so we need to construct dates accordingly
+      const now = new Date();
+      const endDate = new Date(Date.UTC(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        now.getHours(),
+        now.getMinutes(),
+        now.getSeconds(),
+        now.getMilliseconds()
+      ));
+
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const startDate = new Date(Date.UTC(
+        thirtyDaysAgo.getFullYear(),
+        thirtyDaysAgo.getMonth(),
+        thirtyDaysAgo.getDate(),
+        0, 0, 0, 0
+      ));
+
       const reportData = await utils.client.getPPEViolationReport.query({
         siteId,
-        startDate: new Date(new Date().setDate(new Date().getDate() - 30)),
-        endDate: new Date(),
+        startDate,
+        endDate,
       });
 
       generatePPEViolationReport(reportData, site);

@@ -3,6 +3,13 @@ import { router, publicProcedure } from "./trpc";
 import { storage } from "../storage";
 import { db } from "../db";
 import { S3Service } from "../s3";
+import {
+  convertToSingaporeTime,
+  getSingaporeTodayStart,
+  getSingaporeTodayEnd,
+  getSingaporeMonthStart,
+  getSingaporeMonthEnd
+} from "../time-utils";
 
 export const appRouter = router({
   // Sites
@@ -831,27 +838,23 @@ export const appRouter = router({
         take: 1000, // Limit to 1000 records for performance
       });
 
-      // Get today's violations
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date();
-      todayEnd.setHours(23, 59, 59, 999);
+      // Get today's violations using Singapore timezone
+      const todayStart = getSingaporeTodayStart();
+      const todayEnd = getSingaporeTodayEnd();
 
-      const todayViolations = violations.filter(v =>
-        v.detectionTimestamp >= todayStart && v.detectionTimestamp <= todayEnd
-      );
+      const todayViolations = violations.filter(v => {
+        const vTimeSG = convertToSingaporeTime(v.detectionTimestamp);
+        return vTimeSG >= todayStart && vTimeSG <= todayEnd;
+      });
 
-      // Get this month's violations
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-      const monthEnd = new Date();
-      monthEnd.setMonth(monthEnd.getMonth() + 1, 0);
-      monthEnd.setHours(23, 59, 59, 999);
+      // Get this month's violations using Singapore timezone
+      const monthStart = getSingaporeMonthStart();
+      const monthEnd = getSingaporeMonthEnd();
 
-      const monthViolations = violations.filter(v =>
-        v.detectionTimestamp >= monthStart && v.detectionTimestamp <= monthEnd
-      );
+      const monthViolations = violations.filter(v => {
+        const vTimeSG = convertToSingaporeTime(v.detectionTimestamp);
+        return vTimeSG >= monthStart && vTimeSG <= monthEnd;
+      });
 
       // Group violations by person
       const violationsByPerson: Record<string, any> = {};
@@ -870,11 +873,12 @@ export const appRouter = router({
         violationsByPerson[v.personName].violations.push(v);
         violationsByPerson[v.personName].totalViolations += 1;
 
-        if (v.detectionTimestamp >= todayStart && v.detectionTimestamp <= todayEnd) {
+        const vTimeSG = convertToSingaporeTime(v.detectionTimestamp);
+        if (vTimeSG >= todayStart && vTimeSG <= todayEnd) {
           violationsByPerson[v.personName].todayViolations += 1;
         }
 
-        if (v.detectionTimestamp >= monthStart && v.detectionTimestamp <= monthEnd) {
+        if (vTimeSG >= monthStart && vTimeSG <= monthEnd) {
           violationsByPerson[v.personName].monthViolations += 1;
         }
 
@@ -946,13 +950,15 @@ export const appRouter = router({
         take: 1000,
       });
 
-      const todayZoneIntrusions = zoneIntrusions.filter(v =>
-        v.createdAt >= todayStart && v.createdAt <= todayEnd
-      );
+      const todayZoneIntrusions = zoneIntrusions.filter(v => {
+        const vTimeSG = convertToSingaporeTime(v.createdAt);
+        return vTimeSG >= todayStart && vTimeSG <= todayEnd;
+      });
 
-      const monthZoneIntrusions = zoneIntrusions.filter(v =>
-        v.createdAt >= monthStart && v.createdAt <= monthEnd
-      );
+      const monthZoneIntrusions = zoneIntrusions.filter(v => {
+        const vTimeSG = convertToSingaporeTime(v.createdAt);
+        return vTimeSG >= monthStart && vTimeSG <= monthEnd;
+      });
 
       return {
         violations,
