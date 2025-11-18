@@ -426,14 +426,6 @@ export default function AttendanceDashboard({
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="secondary">
-                              {Math.round(
-                                record.confidence <= 1
-                                  ? record.confidence * 100
-                                  : record.confidence
-                              )}
-                              % confidence
-                            </Badge>
                             <Button
                               variant="ghost"
                               size="sm"
