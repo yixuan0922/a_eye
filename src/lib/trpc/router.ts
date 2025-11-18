@@ -974,6 +974,49 @@ export const appRouter = router({
         return vTimeSG >= monthStart && vTimeSG <= monthEnd;
       });
 
+      // Get attendance data for the date range
+      const attendance = await db.attendance.findMany({
+        where: {
+          siteId: input.siteId,
+          timestamp: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        include: {
+          personnel: true,
+        },
+        orderBy: { timestamp: 'desc' },
+      });
+
+      // Group attendance by person and day
+      const attendanceByPerson: Record<string, any> = {};
+      attendance.forEach(record => {
+        const date = record.timestamp.toDateString();
+        const personId = record.personnelId;
+
+        if (!attendanceByPerson[personId]) {
+          attendanceByPerson[personId] = {
+            name: record.personnel.name,
+            days: new Set<string>(),
+          };
+        }
+
+        attendanceByPerson[personId].days.add(date);
+      });
+
+      // Convert sets to counts
+      const attendanceSummary = Object.values(attendanceByPerson).map((person: any) => ({
+        name: person.name,
+        daysPresent: person.days.size,
+      })).sort((a, b) => b.daysPresent - a.daysPresent);
+
+      // Today's attendance
+      const todayAttendance = attendance.filter(record => {
+        const recordDate = record.timestamp.toDateString();
+        return recordDate === new Date().toDateString();
+      });
+
       return {
         violations,
         todayViolations,
@@ -987,6 +1030,9 @@ export const appRouter = router({
         monthZoneIntrusions,
         zoneIntrusionsTotalCount,
         isZoneIntrusionsLimited: zoneIntrusionsTotalCount > 1000,
+        attendance: attendanceSummary,
+        todayAttendanceCount: todayAttendance.length,
+        totalAttendanceRecords: attendance.length,
         dateRange: {
           startDate,
           endDate,

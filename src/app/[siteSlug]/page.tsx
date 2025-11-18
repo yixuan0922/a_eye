@@ -216,7 +216,12 @@ export default function Dashboard() {
           </TabsContent>
 
           <TabsContent value="reports" className="mt-6">
-            <Reports siteId={siteData.id} />
+            <Reports
+              siteId={siteData.id}
+              siteName={siteData.name}
+              siteLocation={siteData.location}
+              siteCode={siteData.code}
+            />
           </TabsContent>
 
           <TabsContent value="attendance" className="mt-6">
