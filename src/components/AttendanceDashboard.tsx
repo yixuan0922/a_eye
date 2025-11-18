@@ -21,6 +21,7 @@ import {
   Download,
   Eye,
   TrendingUp,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -178,6 +179,65 @@ export default function AttendanceDashboard({
     (authorizedPersonnel || []).filter((p: any) => !presentIdSet.has(p.id)) ||
     [];
 
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
+
+  const clearTodayAttendance = async () => {
+    if (!confirm("Are you sure you want to clear all attendance records for today? This action cannot be undone.")) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const response = await fetch(`/api/attendance/clear?date=${dateStr}&siteId=${siteId}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`Successfully deleted ${data.deletedCount} attendance record(s)`);
+        // Refresh the data
+        window.location.reload();
+      } else {
+        alert(`Failed to clear attendance: ${data.message}`);
+      }
+    } catch (error) {
+      console.error("Error clearing attendance:", error);
+      alert("An error occurred while clearing attendance records");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const deleteAttendanceRecord = async (recordId: string, personnelName: string) => {
+    if (!confirm(`Delete attendance record for ${personnelName}?`)) {
+      return;
+    }
+
+    setDeletingRecordId(recordId);
+    try {
+      const response = await fetch(`/api/attendance/${recordId}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Refresh the data
+        window.location.reload();
+      } else {
+        alert(`Failed to delete record: ${data.message}`);
+      }
+    } catch (error) {
+      console.error("Error deleting record:", error);
+      alert("An error occurred while deleting the record");
+    } finally {
+      setDeletingRecordId(null);
+    }
+  };
+
   const exportAttendance = () => {
     if (!attendanceReport) return;
 
@@ -299,6 +359,15 @@ export default function AttendanceDashboard({
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={clearTodayAttendance}
+                  disabled={isDeleting || presentToday === 0}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {isDeleting ? "Clearing..." : "Clear"}
+                </Button>
                 <Button variant="outline" size="sm" onClick={exportAttendance}>
                   <Download className="w-4 h-4 mr-2" />
                   Export
@@ -356,7 +425,7 @@ export default function AttendanceDashboard({
                               </p>
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="flex items-center gap-2">
                             <Badge variant="secondary">
                               {Math.round(
                                 record.confidence <= 1
@@ -365,6 +434,14 @@ export default function AttendanceDashboard({
                               )}
                               % confidence
                             </Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteAttendanceRecord(record.id, record.personnel.name)}
+                              disabled={deletingRecordId === record.id}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
                           </div>
                         </div>
                       );

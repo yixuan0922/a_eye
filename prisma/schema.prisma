@@ -149,6 +149,8 @@ model Attendance {
   personnel   Personnel @relation("PersonnelAttendance", fields: [personnelId], references: [id], onDelete: Cascade)
   site        Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
 
+  @@index([personnelId, timestamp])
+  @@index([siteId, timestamp])
   @@map("attendance")
 }
 
