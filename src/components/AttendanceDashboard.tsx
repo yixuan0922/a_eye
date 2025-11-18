@@ -69,27 +69,42 @@ export default function AttendanceDashboard({
     const hhmmss = iso.slice(11, 19);
     return withSeconds ? hhmmss : hhmmss.slice(0, 5);
   };
-  // Helpers to format in SGT (UTC+8) without altering the stored instant
+  // Helpers to format timestamps:
+  // - If ts is a naive string like "YYYY-MM-DD HH:mm:ss(.sss)", show it AS-IS (no timezone math)
+  // - Otherwise, render in SGT using Intl (UTC+8)
+  const isNaiveDateTimeString = (s: string) => {
+    return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/.test(s) && !/[zZ]|([+-]\d{2}:?\d{2})$/.test(s);
+  };
+
   const formatSgtParts = (ts: Date | string) => {
-    const date = ts instanceof Date ? ts : new Date(ts);
-    const parts = new Intl.DateTimeFormat("en-SG", {
-      timeZone: "Asia/Singapore",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    }).formatToParts(date);
-    const get = (type: string) => parts.find((p) => p.type === type)?.value || "";
-    const year = get("year");
-    const month = get("month");
-    const day = get("day");
-    let hour = get("hour");
-    const minute = get("minute");
-    const dayPeriod = get("dayPeriod")?.toLowerCase();
-    // Remove any leading zeros from hour (Intl may return "03")
-    hour = String(parseInt(hour, 10));
+    if (typeof ts === "string" && isNaiveDateTimeString(ts)) {
+      // Parse manually without timezone adjustments
+      const [datePart, timePartFull] = ts.split(/[T ]/);
+      const [year, month, day] = datePart.split("-");
+      const [hh, mm] = timePartFull.split(":");
+      const hour24 = parseInt(hh, 10);
+      const dayPeriod = hour24 < 12 ? "am" : "pm";
+      const hour12 = (hour24 % 12 || 12).toString();
+      return {
+        year,
+        month,
+        day,
+        hour: hour12,
+        minute: mm,
+        dayPeriod,
+      };
+    }
+
+    // For Date or ISO strings, render using UTC fields (no timezone shift)
+    const d = ts instanceof Date ? ts : new Date(ts);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const year = String(d.getUTCFullYear());
+    const month = pad(d.getUTCMonth() + 1);
+    const day = pad(d.getUTCDate());
+    const hour24 = d.getUTCHours();
+    const minute = pad(d.getUTCMinutes());
+    const dayPeriod = hour24 < 12 ? "am" : "pm";
+    const hour = String(hour24 % 12 || 12);
     return { year, month, day, hour, minute, dayPeriod };
   };
   const formatSgtTime12 = (ts: Date | string) => {
@@ -399,7 +414,10 @@ export default function AttendanceDashboard({
                           {format(new Date(day.date), "MMM dd")}
                         </div>
                         <div className="text-gray-600">
-                          {formatSgtTime12(day.firstSeen)} - {formatSgtTime12(day.lastSeen)}
+                          {new Date(day.firstSeen).getTime() ===
+                          new Date(day.lastSeen).getTime()
+                            ? formatSgtTime12(day.firstSeen)
+                            : `${formatSgtTime12(day.firstSeen)} - ${formatSgtTime12(day.lastSeen)}`}
                         </div>
                         <div className="text-xs text-gray-500">
                           {day.totalDetections} detections

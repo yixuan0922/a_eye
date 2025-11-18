@@ -263,7 +263,11 @@ export const appRouter = router({
       })
     )
     .query(async ({ input }) => {
-      return await storage.getPPEViolationsBySite(input.siteId, input.limit, input.skip);
+      return await storage.getPPEViolationsBySite(
+        input.siteId,
+        input.limit,
+        input.skip
+      );
     }),
 
   getActivePPEViolationsBySite: publicProcedure
@@ -275,7 +279,11 @@ export const appRouter = router({
       })
     )
     .query(async ({ input }) => {
-      return await storage.getActivePPEViolationsBySite(input.siteId, input.limit, input.skip);
+      return await storage.getActivePPEViolationsBySite(
+        input.siteId,
+        input.limit,
+        input.skip
+      );
     }),
 
   getPPEViolationsCount: publicProcedure
@@ -636,12 +644,18 @@ export const appRouter = router({
       })
     )
     .query(async ({ input }) => {
+      // Normalize to full-day inclusive range
+      const start = new Date(input.startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(input.endDate);
+      end.setHours(23, 59, 59, 999);
+
       const attendance = await db.attendance.findMany({
         where: {
           siteId: input.siteId,
           timestamp: {
-            gte: input.startDate,
-            lte: input.endDate,
+            gte: start,
+            lte: end,
           },
         },
         include: {
