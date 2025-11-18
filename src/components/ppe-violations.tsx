@@ -42,7 +42,8 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
   const [restrictedZoneStartDate, setRestrictedZoneStartDate] = useState("");
   const [restrictedZoneEndDate, setRestrictedZoneEndDate] = useState("");
 
-  // Check for recent violations and send Telegram notifications
+
+  // Check for recent PPE violations and send Telegram notifications
   useEffect(() => {
     const checkRecentViolations = async () => {
       try {
@@ -52,7 +53,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
           body: JSON.stringify({ siteId }),
         });
       } catch (error) {
-        console.error('Failed to check recent violations:', error);
+        console.error('Failed to check recent PPE violations:', error);
       }
     };
 
@@ -65,25 +66,25 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     return () => clearInterval(interval);
   }, [siteId]);
 
-  // Check for recent violations and send Telegram notifications
+  // Check for recent zone intrusions and send Telegram notifications
   useEffect(() => {
-    const checkRecentViolations = async () => {
+    const checkRecentZoneIntrusions = async () => {
       try {
-        await fetch('/api/check-recent-violations', {
+        await fetch('/api/check-recent-zone-intrusions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ siteId }),
         });
       } catch (error) {
-        console.error('Failed to check recent violations:', error);
+        console.error('Failed to check recent zone intrusions:', error);
       }
     };
 
     // Check immediately on mount
-    checkRecentViolations();
+    checkRecentZoneIntrusions();
 
     // Then check every 5 seconds
-    const interval = setInterval(checkRecentViolations, 5000);
+    const interval = setInterval(checkRecentZoneIntrusions, 5000);
 
     return () => clearInterval(interval);
   }, [siteId]);
@@ -1013,7 +1014,11 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
 
       {/* Violation Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className={`${
+          selectedViolation?.type === 'restricted_zone' || selectedViolation?.durationSeconds !== undefined
+            ? 'max-w-7xl'
+            : 'max-w-5xl'
+        } max-h-[90vh] overflow-y-auto`}>
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Violation Details</span>
@@ -1026,11 +1031,22 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
           </DialogHeader>
 
           {selectedViolation && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className={`grid grid-cols-1 gap-6 ${
+              selectedViolation.type === 'restricted_zone' || selectedViolation.durationSeconds !== undefined
+                ? 'lg:grid-cols-[2fr,1fr]'
+                : 'lg:grid-cols-2'
+            }`}>
               {/* Left Side - Snapshot Image */}
               <div className="flex flex-col">
                 {(selectedViolation.snapshotUrl || selectedViolation.imageUrl) ? (
-                  <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ height: '500px' }}>
+                  <div
+                    className="bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center"
+                    style={{
+                      height: selectedViolation.type === 'restricted_zone' || selectedViolation.durationSeconds !== undefined
+                        ? '600px'
+                        : '500px'
+                    }}
+                  >
                     <img
                       src={convertS3UrlToHttps(selectedViolation.snapshotUrl || selectedViolation.imageUrl) || ''}
                       alt="Violation Snapshot"
@@ -1048,7 +1064,14 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
               </div>
 
               {/* Right Side - Details */}
-              <div className="space-y-4 overflow-y-auto" style={{ maxHeight: '500px' }}>
+              <div
+                className="space-y-4 overflow-y-auto"
+                style={{
+                  maxHeight: selectedViolation.type === 'restricted_zone' || selectedViolation.durationSeconds !== undefined
+                    ? '600px'
+                    : '500px'
+                }}
+              >
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Person Information</h3>
                   <div className="grid grid-cols-2 gap-4">

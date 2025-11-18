@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sendBulkTelegramNotification, formatPPEViolationMessage } from "@/lib/telegram";
+import { sendBulkTelegramNotification, formatZoneIntrusionMessage } from "@/lib/telegram";
 import { convertS3UrlToHttps } from "@/lib/s3";
 import { isWithinRecentTime } from "@/lib/time-utils";
+import { shouldSendNotification } from "@/lib/notification-dedup";
 
 // Track which violations have already been notified to prevent duplicates
-// Store with timestamp to allow re-notification after a certain period
 const notifiedViolations = new Map<string, number>();
 
 // Clean up old entries every 10 minutes to prevent memory leak
@@ -33,24 +33,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get all PPE violations for this site
-    const allViolations = await db.pPEViolation.findMany({
+    // Get all zone intrusions for this site
+    const allViolations = await db.violation.findMany({
       where: {
         siteId,
+        type: "restricted_zone",
         status: "active",
       },
       orderBy: {
-        detectionTimestamp: "desc",
+        createdAt: "desc",
       },
     });
 
     const now = new Date();
     const recentViolations = [];
 
-    // Filter violations that are within 1 minute of current SG time and haven't been notified yet
+    // Filter violations that are within 60 seconds and haven't been notified yet
     for (const violation of allViolations) {
       // Use the Singapore time check to verify if the violation is within 60 seconds
-      if (isWithinRecentTime(violation.detectionTimestamp, 60)) {
+      if (isWithinRecentTime(violation.createdAt, 60)) {
         // Check if we've already notified about this violation
         const lastNotified = notifiedViolations.get(violation.id);
 
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     if (recentViolations.length === 0) {
       return NextResponse.json({
         success: true,
-        message: "No recent violations to notify",
+        message: "No recent zone intrusions to notify",
         checked: allViolations.length,
         recent: 0,
       });
@@ -96,41 +97,56 @@ export async function POST(request: NextRequest) {
     // Send notification for each recent violation
     const notificationResults = [];
     for (const violation of recentViolations) {
-      const message = formatPPEViolationMessage({
-        personName: violation.personName,
-        location: violation.location || undefined,
-        cameraName: violation.cameraName,
-        ppeMissing: violation.ppeMissing,
+      // Extract person name and zone from description
+      // Format: "Unknown detected in Restricted Zone" or "PersonName detected in ZoneName"
+      const descParts = violation.description.split(' detected in ');
+      const personName = descParts[0] || 'Unknown';
+      const zoneName = descParts[1] || 'Restricted Zone';
+
+      // Check for duplicates using deduplication logic
+      const notificationLocation = `${zoneName}@${violation.location || 'Unknown'}`;
+
+      if (!shouldSendNotification('zone', personName, notificationLocation, 10)) {
+        console.log(`Skipping duplicate zone intrusion notification for ${personName} at ${zoneName}`);
+        continue;
+      }
+
+      const message = formatZoneIntrusionMessage({
+        personName,
+        zoneName,
+        location: violation.location || 'Unknown',
         severity: violation.severity,
-        detectionTimestamp: violation.detectionTimestamp,
+        detectionTimestamp: violation.createdAt,
       });
 
       try {
         // Convert S3 URL to HTTPS if present
-        const imageUrl = violation.snapshotUrl
-          ? convertS3UrlToHttps(violation.snapshotUrl) ?? undefined
+        const imageUrl = violation.imageUrl
+          ? convertS3UrlToHttps(violation.imageUrl) ?? undefined
           : undefined;
 
         const result = await sendBulkTelegramNotification({
           userIds: adminUserIds,
           message,
-          type: 'ppe_violation',
+          type: 'zone_intrusion',
           imageUrl,
         });
 
         notificationResults.push({
           violationId: violation.id,
-          personName: violation.personName,
+          personName,
+          zoneName,
           sent: result.sent,
           failed: result.failed,
         });
 
-        console.log(`✅ Sent notification for violation ${violation.id} - ${violation.personName}`);
+        console.log(`✅ Sent zone intrusion notification for violation ${violation.id} - ${personName} in ${zoneName}`);
       } catch (error) {
         console.error(`Failed to send notification for violation ${violation.id}:`, error);
         notificationResults.push({
           violationId: violation.id,
-          personName: violation.personName,
+          personName,
+          zoneName,
           error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
@@ -138,17 +154,17 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Processed ${recentViolations.length} recent violations`,
+      message: `Processed ${recentViolations.length} recent zone intrusions`,
       totalViolations: allViolations.length,
       recentViolations: recentViolations.length,
       notifications: notificationResults,
     });
   } catch (error) {
-    console.error("Error checking recent violations:", error);
+    console.error("Error checking recent zone intrusions:", error);
     return NextResponse.json(
       {
         success: false,
-        message: "Failed to check recent violations",
+        message: "Failed to check recent zone intrusions",
         error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
