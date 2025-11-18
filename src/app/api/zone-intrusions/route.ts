@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
             zoneName,
             location: location || cameraName,
             severity: violationSeverity,
-            detectionTimestamp: violation.createdAt,
+            detectionTimestamp: timestamp,
           });
 
           // Send notification without blocking the response
