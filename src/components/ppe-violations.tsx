@@ -574,7 +574,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
               </p>
 
               <div className="flex items-center space-x-4 text-sm text-gray-500">
-                <span>{formatTime(violation.detectionTimestamp)}</span>
+                <span>{formatTime(violation.createdAt)}</span>
                 {violation.location && (
                   <span>Location: {violation.location}</span>
                 )}
@@ -599,7 +599,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     );
   };
 
-  // Format time for restricted zone violations (timestamps are already in SGT, no conversion needed)
+  // Format time for restricted zone violations (timestamps already in SGT, no conversion needed)
   const formatRestrictedZoneTime = (date: Date | string | null) => {
     if (!date) return "Never";
 
@@ -627,7 +627,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
       return "Invalid date";
     }
 
-    // Use UTC components directly as they represent SGT time
+    // Use UTC components directly (timestamps are already stored in SGT)
     const year = dateObj.getUTCFullYear();
     const month = dateObj.getUTCMonth() + 1;
     const day = dateObj.getUTCDate();
@@ -635,8 +635,11 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     const minute = dateObj.getUTCMinutes();
     const second = dateObj.getUTCSeconds();
 
+    // For relative time, we need to compare SGT timestamp with current SGT time
+    // Since timestamp is stored in SGT (as UTC), we add 8 hours to current time to match
     const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - dateObj.getTime()) / 60000);
+    const nowSgt = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+    const diffInMinutes = Math.floor((nowSgt.getTime() - dateObj.getTime()) / 60000);
 
     if (diffInMinutes < -5) {
       return formatDateManually(year, month, day, hour, minute, second);
