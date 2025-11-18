@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Popover,
   PopoverContent,
@@ -153,12 +154,29 @@ export default function AttendanceDashboard({
     });
 
   const { data: knownFaces } = trpc.getKnownFaces.useQuery(siteId);
+  const { data: authorizedPersonnel } =
+    trpc.getAuthorizedPersonnelBySite.useQuery(siteId);
 
   // Calculate statistics
   const totalPeople = knownFaces?.length || 0;
   const presentToday = todayAttendance?.length || 0;
   const attendanceRate =
     totalPeople > 0 ? Math.round((presentToday / totalPeople) * 100) : 0;
+
+  // Attendance view tab (present | absent)
+  const [attendanceTab, setAttendanceTab] = useState<"present" | "absent">(
+    "present"
+  );
+
+  // Compute absent list: authorized personnel not in today's attendance
+  const presentIdSet = new Set(
+    (todayAttendance as AttendanceRecord[] | undefined)?.map(
+      (r) => r.personnel.id
+    )
+  );
+  const absentAuthorized =
+    (authorizedPersonnel || []).filter((p: any) => !presentIdSet.has(p.id)) ||
+    [];
 
   const exportAttendance = () => {
     if (!attendanceReport) return;
@@ -267,75 +285,141 @@ export default function AttendanceDashboard({
               <CardTitle>
                 Attendance for {format(selectedDate, "MMMM dd, yyyy")}
               </CardTitle>
-              <Button variant="outline" size="sm" onClick={exportAttendance}>
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
+              <div className="flex items-center gap-2">
+                <Tabs
+                  value={attendanceTab}
+                  onValueChange={(v) => setAttendanceTab(v as any)}
+                >
+                  <TabsList>
+                    <TabsTrigger value="present">
+                      Present ({presentToday})
+                    </TabsTrigger>
+                    <TabsTrigger value="absent">
+                      Absent ({absentAuthorized.length})
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Button variant="outline" size="sm" onClick={exportAttendance}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
-            {loadingToday ? (
-              <div className="space-y-3">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse" />
-                    <div className="flex-1">
-                      <div className="h-4 bg-gray-200 rounded w-1/3 mb-1 animate-pulse" />
-                      <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : todayAttendance?.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <UserCheck className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>No attendance recorded for this date</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {(todayAttendance as AttendanceRecord[])?.map((record) => {
-                  const photoUrl = getPrimaryPhotoUrl(record.personnel.photos);
-                  return (
-                    <div
-                      key={record.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        {photoUrl ? (
-                          <img
-                            src={photoUrl as string}
-                            alt={record.personnel.name}
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-                            <Users className="w-6 h-6 text-gray-500" />
-                          </div>
-                        )}
-                        <div>
-                          <h4 className="font-medium">
-                            {record.personnel.name}
-                          </h4>
-                          <p className="text-sm text-gray-500">
-                            {formatSgtDateTime12(record.timestamp)}
-                          </p>
+            <Tabs value={attendanceTab}>
+              <TabsContent value="present" className="m-0">
+                {loadingToday ? (
+                  <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse" />
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-200 rounded w-1/3 mb-1 animate-pulse" />
+                          <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse" />
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge variant="secondary">
-                          {Math.round(
-                            record.confidence <= 1
-                              ? record.confidence * 100
-                              : record.confidence
-                          )}
-                          % confidence
-                        </Badge>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    ))}
+                  </div>
+                ) : todayAttendance?.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <UserCheck className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No attendance recorded for this date</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {(todayAttendance as AttendanceRecord[])?.map((record) => {
+                      const photoUrl = getPrimaryPhotoUrl(record.personnel.photos);
+                      return (
+                        <div
+                          key={record.id}
+                          className="flex items-center justify-between p-3 border rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            {photoUrl ? (
+                              <img
+                                src={photoUrl as string}
+                                alt={record.personnel.name}
+                                className="w-12 h-12 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                                <Users className="w-6 h-6 text-gray-500" />
+                              </div>
+                            )}
+                            <div>
+                              <h4 className="font-medium">
+                                {record.personnel.name}
+                              </h4>
+                              <p className="text-sm text-gray-500">
+                                {formatSgtDateTime12(record.timestamp)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="secondary">
+                              {Math.round(
+                                record.confidence <= 1
+                                  ? record.confidence * 100
+                                  : record.confidence
+                              )}
+                              % confidence
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="absent" className="m-0">
+                {authorizedPersonnel && authorizedPersonnel.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No authorized personnel</p>
+                  </div>
+                ) : absentAuthorized.length === 0 ? (
+                  <div className="text-center py-8 text-green-600">
+                    Everyone was present today
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {absentAuthorized.map((person: any) => {
+                      const photoUrl = getPrimaryPhotoUrl(person.photos);
+                      return (
+                        <div
+                          key={person.id}
+                          className="flex items-center justify-between p-3 border rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            {photoUrl ? (
+                              <img
+                                src={photoUrl as string}
+                                alt={person.name}
+                                className="w-12 h-12 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                                <Users className="w-6 h-6 text-gray-500" />
+                              </div>
+                            )}
+                            <div>
+                              <h4 className="font-medium">{person.name}</h4>
+                              <p className="text-sm text-gray-500">
+                                {(person.role || person.position || "Role N/A") +
+                                  " • Absent"}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge variant="outline">Authorized</Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
