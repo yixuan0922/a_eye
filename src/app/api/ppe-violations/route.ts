@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
             cameraName: ppeViolation.cameraName,
             ppeMissing: ppeViolation.ppeMissing,
             severity: ppeViolation.severity,
-            detectionTimestamp: ppeViolation.detectionTimestamp,
+            detectionTimestamp: timestamp,
           });
 
           // Send notification without blocking the response

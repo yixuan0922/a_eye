@@ -112,6 +112,11 @@ export function formatPPEViolationMessage(violation: {
     ? violation.ppeMissing.join(', ')
     : JSON.stringify(violation.ppeMissing);
 
+  // Format: YYYY-MM-DD HH:MM:SS (removing the Z and milliseconds)
+  const timestamp = new Date(violation.detectionTimestamp);
+  const isoString = timestamp.toISOString();
+  const formattedTime = isoString.replace('T', ' ').replace(/\.\d{3}Z$/, '');
+
   return `
 🦺 PPE VIOLATION DETECTED
 
@@ -120,7 +125,7 @@ Location: ${violation.location || 'Unknown'}
 Camera: ${violation.cameraName}
 Missing PPE: ${missing}
 Severity: ${violation.severity.toUpperCase()}
-Time: ${new Date(violation.detectionTimestamp).toLocaleString()}
+Time: ${formattedTime}
 
 Action Required: Please investigate immediately.
   `.trim();
@@ -185,6 +190,11 @@ export function formatZoneIntrusionMessage(intrusion: {
   detectionTimestamp: Date;
 }): string {
   const severityEmoji = intrusion.severity === "high" ? "🚨" : intrusion.severity === "medium" ? "⚠️" : "ℹ️";
+  const timestamp = new Date(intrusion.detectionTimestamp);
+
+  // Format: YYYY-MM-DD HH:MM:SS (removing the Z and milliseconds)
+  const isoString = timestamp.toISOString();
+  const formattedTime = isoString.replace('T', ' ').replace(/\.\d{3}Z$/, '');
 
   return `
 ${severityEmoji} RESTRICTED ZONE INTRUSION
@@ -193,7 +203,7 @@ Person: ${intrusion.personName}
 Zone: ${intrusion.zoneName}
 Location: ${intrusion.location || 'Unknown'}
 Severity: ${intrusion.severity.toUpperCase()}
-Time: ${new Date(intrusion.detectionTimestamp).toLocaleString()}
+Time: ${formattedTime}
 
 Immediate action may be required.
   `.trim();
