@@ -3,9 +3,11 @@
  * Sends notifications to users via Telegram bot
  */
 
+import { formatSingaporeTimestamp } from './time-utils';
+
 const TELEGRAM_BOT_URL = process.env.TELEGRAM_BOT_URL || 'http://localhost:3001';
 
-export type NotificationType = 'violation' | 'ppe_violation' | 'unauthorized' | 'success';
+export type NotificationType = 'violation' | 'ppe_violation' | 'unauthorized' | 'zone_intrusion' | 'success';
 
 interface SendNotificationParams {
   userId: string;
@@ -112,6 +114,9 @@ export function formatPPEViolationMessage(violation: {
     ? violation.ppeMissing.join(', ')
     : JSON.stringify(violation.ppeMissing);
 
+  // Format: YYYY-MM-DD HH:MM:SS using Singapore timezone
+  const formattedTime = formatSingaporeTimestamp(violation.detectionTimestamp);
+
   return `
 🦺 PPE VIOLATION DETECTED
 
@@ -120,7 +125,7 @@ Location: ${violation.location || 'Unknown'}
 Camera: ${violation.cameraName}
 Missing PPE: ${missing}
 Severity: ${violation.severity.toUpperCase()}
-Time: ${new Date(violation.detectionTimestamp).toLocaleString()}
+Time: ${formattedTime}
 
 Action Required: Please investigate immediately.
   `.trim();
@@ -171,6 +176,34 @@ Severity: ${violation.severity.toUpperCase()}
 Time: ${new Date(violation.createdAt).toLocaleString()}
 
 Please review and take appropriate action.
+  `.trim();
+}
+
+/**
+ * Format restricted zone intrusion message
+ */
+export function formatZoneIntrusionMessage(intrusion: {
+  personName: string;
+  zoneName: string;
+  location?: string;
+  severity: string;
+  detectionTimestamp: Date;
+}): string {
+  const severityEmoji = intrusion.severity === "high" ? "🚨" : intrusion.severity === "medium" ? "⚠️" : "ℹ️";
+
+  // Format: YYYY-MM-DD HH:MM:SS using Singapore timezone
+  const formattedTime = formatSingaporeTimestamp(intrusion.detectionTimestamp);
+
+  return `
+${severityEmoji} RESTRICTED ZONE INTRUSION
+
+Person: ${intrusion.personName}
+Zone: ${intrusion.zoneName}
+Location: ${intrusion.location || 'Unknown'}
+Severity: ${intrusion.severity.toUpperCase()}
+Time: ${formattedTime}
+
+Immediate action may be required.
   `.trim();
 }
 

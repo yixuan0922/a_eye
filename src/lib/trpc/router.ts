@@ -2,6 +2,14 @@ import { z } from "zod";
 import { router, publicProcedure } from "./trpc";
 import { storage } from "../storage";
 import { db } from "../db";
+import { S3Service } from "../s3";
+import {
+  convertToSingaporeTime,
+  getSingaporeTodayStart,
+  getSingaporeTodayEnd,
+  getSingaporeMonthStart,
+  getSingaporeMonthEnd
+} from "../time-utils";
 
 export const appRouter = router({
   // Sites
@@ -77,12 +85,83 @@ export const appRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      return await storage.updatePersonnelStatus(
+      // Read current record to access name and photos for side-effects
+      const existing = await db.personnel.findUnique({
+        where: { id: input.id },
+      });
+
+      const updated = await storage.updatePersonnelStatus(
         input.id,
         input.status,
         input.isAuthorized,
         input.authorizedBy
       );
+
+      // On approval: send faces from S3 to Jetson/Flask
+      if (input.isAuthorized) {
+        try {
+          const photoUrls = (existing?.photos as string[]) || [];
+          if (photoUrls.length > 0) {
+            const formData = new FormData();
+
+            // Download each S3 photo and attach as a file part
+            await Promise.all(
+              photoUrls.map(async (url, index) => {
+                const res = await fetch(url);
+                if (!res.ok)
+                  throw new Error(`Failed to fetch photo ${index + 1}`);
+                const contentType =
+                  res.headers.get("content-type") || "image/jpeg";
+                const arrayBuffer = await res.arrayBuffer();
+                const blob = new Blob([arrayBuffer], { type: contentType });
+                formData.append("files", blob, `photo_${index}.jpg`);
+              })
+            );
+
+            // Include metadata expected by Flask
+            formData.append("name", existing?.name || "");
+            formData.append("personnelId", input.id);
+
+            const flaskUrl =
+              process.env.FLASK_ADD_FACES_URL ||
+              "https://aeye001.biofuel.osiris.sg/api/add_faces";
+
+            const resp = await fetch(flaskUrl, {
+              method: "POST",
+              body: formData,
+            });
+
+            // Log but do not block UI on non-2xx (partial/temporary errors shouldn't break approval)
+            if (!resp.ok && resp.status !== 207) {
+              let body: any;
+              try {
+                body = await resp.json();
+              } catch {
+                body = await resp.text();
+              }
+              console.warn("Flask add_faces non-OK:", resp.status, body);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to add faces to Jetson after approval:", error);
+        }
+      } else if (input.status === "rejected") {
+        // On rejection: delete all stored S3 photos and clear field
+        try {
+          const photoUrls = (existing?.photos as string[]) || [];
+          if (photoUrls.length > 0) {
+            await S3Service.deleteMultipleFiles(photoUrls);
+            await db.personnel.update({
+              where: { id: input.id },
+              data: { photos: [] },
+            });
+          }
+        } catch (error) {
+          console.error("Failed to clean up S3 photos on rejection:", error);
+        }
+      }
+
+      return updated;
     }),
 
   updatePersonnel: publicProcedure
@@ -191,7 +270,11 @@ export const appRouter = router({
       })
     )
     .query(async ({ input }) => {
-      return await storage.getPPEViolationsBySite(input.siteId, input.limit, input.skip);
+      return await storage.getPPEViolationsBySite(
+        input.siteId,
+        input.limit,
+        input.skip
+      );
     }),
 
   getActivePPEViolationsBySite: publicProcedure
@@ -203,7 +286,11 @@ export const appRouter = router({
       })
     )
     .query(async ({ input }) => {
-      return await storage.getActivePPEViolationsBySite(input.siteId, input.limit, input.skip);
+      return await storage.getActivePPEViolationsBySite(
+        input.siteId,
+        input.limit,
+        input.skip
+      );
     }),
 
   getPPEViolationsCount: publicProcedure
@@ -452,7 +539,7 @@ export const appRouter = router({
       return await db.personnel.findMany({
         where: {
           siteId,
-          isAuthorized: true
+          isAuthorized: true,
         },
         orderBy: { createdAt: "desc" },
       });
@@ -513,7 +600,6 @@ export const appRouter = router({
         },
         include: {
           personnel: true,
-          camera: true,
         },
         orderBy: { timestamp: "desc" },
       });
@@ -524,7 +610,6 @@ export const appRouter = router({
       z.object({
         siteId: z.string(),
         personnelId: z.string(),
-        cameraId: z.string(),
         confidence: z.number(),
         timestamp: z.date().optional(),
       })
@@ -551,7 +636,6 @@ export const appRouter = router({
         data: {
           siteId: input.siteId,
           personnelId: input.personnelId,
-          cameraId: input.cameraId,
           confidence: input.confidence,
           timestamp: now,
         },
@@ -567,17 +651,22 @@ export const appRouter = router({
       })
     )
     .query(async ({ input }) => {
+      // Normalize to full-day inclusive range
+      const start = new Date(input.startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(input.endDate);
+      end.setHours(23, 59, 59, 999);
+
       const attendance = await db.attendance.findMany({
         where: {
           siteId: input.siteId,
           timestamp: {
-            gte: input.startDate,
-            lte: input.endDate,
+            gte: start,
+            lte: end,
           },
         },
         include: {
           personnel: true,
-          camera: true,
         },
         orderBy: { timestamp: "desc" },
       });
@@ -590,7 +679,11 @@ export const appRouter = router({
         if (!acc[personId]) {
           acc[personId] = {
             name: record.personnel.name,
-            photoUrl: record.personnel.photos ? (Array.isArray(record.personnel.photos) ? record.personnel.photos[0] : null) : null,
+            photoUrl: record.personnel.photos
+              ? Array.isArray(record.personnel.photos)
+                ? record.personnel.photos[0]
+                : null
+              : null,
             days: {},
           };
         }
@@ -602,14 +695,11 @@ export const appRouter = router({
             firstSeen: record.timestamp,
             lastSeen: record.timestamp,
             totalDetections: 1,
-            cameras: [record.camera.name],
+            cameras: [],
           };
         } else {
           acc[personId].days[date].lastSeen = record.timestamp;
           acc[personId].days[date].totalDetections++;
-          if (!acc[personId].days[date].cameras.includes(record.camera.name)) {
-            acc[personId].days[date].cameras.push(record.camera.name);
-          }
         }
 
         return acc;
@@ -702,6 +792,252 @@ export const appRouter = router({
           status: "online",
         },
       });
+    }),
+
+  // PPE Violation Report Data
+  getPPEViolationReport: publicProcedure
+    .input(
+      z.object({
+        siteId: z.string(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const startDate = input.startDate || new Date(new Date().setDate(new Date().getDate() - 30));
+      const endDate = input.endDate || new Date();
+
+      // Get total count of violations in the date range
+      const totalCount = await db.pPEViolation.count({
+        where: {
+          siteId: input.siteId,
+          detectionTimestamp: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      });
+
+      // Get PPE violations in the date range with pagination limit
+      // Limit to 1000 most recent violations to prevent performance issues
+      const violations = await db.pPEViolation.findMany({
+        where: {
+          siteId: input.siteId,
+          detectionTimestamp: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        select: {
+          id: true,
+          personName: true,
+          ppeMissing: true,
+          detectionTimestamp: true,
+          severity: true,
+          personnelId: true,
+          cameraId: true,
+          cameraName: true,
+          location: true,
+          violationReason: true,
+          camera: {
+            select: {
+              name: true,
+              location: true,
+            },
+          },
+        },
+        orderBy: {
+          detectionTimestamp: 'desc',
+        },
+        take: 1000, // Limit to 1000 records for performance
+      });
+
+      // Get today's violations using Singapore timezone
+      const todayStart = getSingaporeTodayStart();
+      const todayEnd = getSingaporeTodayEnd();
+
+      const todayViolations = violations.filter(v => {
+        const vTimeSG = convertToSingaporeTime(v.detectionTimestamp);
+        return vTimeSG >= todayStart && vTimeSG <= todayEnd;
+      });
+
+      // Get this month's violations using Singapore timezone
+      const monthStart = getSingaporeMonthStart();
+      const monthEnd = getSingaporeMonthEnd();
+
+      const monthViolations = violations.filter(v => {
+        const vTimeSG = convertToSingaporeTime(v.detectionTimestamp);
+        return vTimeSG >= monthStart && vTimeSG <= monthEnd;
+      });
+
+      // Group violations by person
+      const violationsByPerson: Record<string, any> = {};
+      violations.forEach(v => {
+        if (!violationsByPerson[v.personName]) {
+          violationsByPerson[v.personName] = {
+            personName: v.personName,
+            violations: [],
+            totalViolations: 0,
+            todayViolations: 0,
+            monthViolations: 0,
+            missingItems: new Set<string>(),
+          };
+        }
+
+        violationsByPerson[v.personName].violations.push(v);
+        violationsByPerson[v.personName].totalViolations += 1;
+
+        const vTimeSG = convertToSingaporeTime(v.detectionTimestamp);
+        if (vTimeSG >= todayStart && vTimeSG <= todayEnd) {
+          violationsByPerson[v.personName].todayViolations += 1;
+        }
+
+        if (vTimeSG >= monthStart && vTimeSG <= monthEnd) {
+          violationsByPerson[v.personName].monthViolations += 1;
+        }
+
+        // Track missing items
+        const missing = Array.isArray(v.ppeMissing) ? v.ppeMissing : JSON.parse(v.ppeMissing as string);
+        missing.forEach((item: string) => {
+          violationsByPerson[v.personName].missingItems.add(item);
+        });
+      });
+
+      // Convert sets to arrays
+      Object.values(violationsByPerson).forEach((person: any) => {
+        person.missingItems = Array.from(person.missingItems);
+      });
+
+      // Get frequently missing PPE items
+      const missingItemsCount: Record<string, number> = {};
+      violations.forEach(v => {
+        const missing = Array.isArray(v.ppeMissing) ? v.ppeMissing : JSON.parse(v.ppeMissing as string);
+        missing.forEach((item: string) => {
+          missingItemsCount[item] = (missingItemsCount[item] || 0) + 1;
+        });
+      });
+
+      // Get zone intrusions (restricted zone violations)
+      const zoneIntrusionsTotalCount = await db.violation.count({
+        where: {
+          siteId: input.siteId,
+          type: "restricted_zone",
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      });
+
+      const zoneIntrusions = await db.violation.findMany({
+        where: {
+          siteId: input.siteId,
+          type: "restricted_zone",
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        select: {
+          id: true,
+          description: true,
+          createdAt: true,
+          severity: true,
+          location: true,
+          cameraId: true,
+          personnelId: true,
+          camera: {
+            select: {
+              name: true,
+              location: true,
+            },
+          },
+          personnel: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 1000,
+      });
+
+      const todayZoneIntrusions = zoneIntrusions.filter(v => {
+        const vTimeSG = convertToSingaporeTime(v.createdAt);
+        return vTimeSG >= todayStart && vTimeSG <= todayEnd;
+      });
+
+      const monthZoneIntrusions = zoneIntrusions.filter(v => {
+        const vTimeSG = convertToSingaporeTime(v.createdAt);
+        return vTimeSG >= monthStart && vTimeSG <= monthEnd;
+      });
+
+      // Get attendance data for the date range
+      const attendance = await db.attendance.findMany({
+        where: {
+          siteId: input.siteId,
+          timestamp: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        include: {
+          personnel: true,
+        },
+        orderBy: { timestamp: 'desc' },
+      });
+
+      // Group attendance by person and day
+      const attendanceByPerson: Record<string, any> = {};
+      attendance.forEach(record => {
+        const date = record.timestamp.toDateString();
+        const personId = record.personnelId;
+
+        if (!attendanceByPerson[personId]) {
+          attendanceByPerson[personId] = {
+            name: record.personnel.name,
+            days: new Set<string>(),
+          };
+        }
+
+        attendanceByPerson[personId].days.add(date);
+      });
+
+      // Convert sets to counts
+      const attendanceSummary = Object.values(attendanceByPerson).map((person: any) => ({
+        name: person.name,
+        daysPresent: person.days.size,
+      })).sort((a, b) => b.daysPresent - a.daysPresent);
+
+      // Today's attendance
+      const todayAttendance = attendance.filter(record => {
+        const recordDate = record.timestamp.toDateString();
+        return recordDate === new Date().toDateString();
+      });
+
+      return {
+        violations,
+        todayViolations,
+        monthViolations,
+        violationsByPerson: Object.values(violationsByPerson),
+        missingItemsCount,
+        totalCount, // Total violations in date range (may exceed 1000 limit)
+        isLimited: totalCount > 1000, // Flag if data is limited
+        zoneIntrusions,
+        todayZoneIntrusions,
+        monthZoneIntrusions,
+        zoneIntrusionsTotalCount,
+        isZoneIntrusionsLimited: zoneIntrusionsTotalCount > 1000,
+        attendance: attendanceSummary,
+        todayAttendanceCount: todayAttendance.length,
+        totalAttendanceRecords: attendance.length,
+        dateRange: {
+          startDate,
+          endDate,
+        },
+      };
     }),
 });
 

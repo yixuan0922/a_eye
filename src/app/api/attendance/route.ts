@@ -4,14 +4,14 @@ import { db } from "@/lib/db";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { siteId, personnelId, cameraId, confidence, timestamp } = body;
+    const { siteId, personnelId, confidence, timestamp } = body;
 
     // Validate required fields
-    if (!siteId || !personnelId || !cameraId) {
+    if (!siteId || !personnelId) {
       return NextResponse.json(
         {
           success: false,
-          message: "Missing required fields: siteId, personnelId, cameraId",
+          message: "Missing required fields: siteId, personnelId",
         },
         { status: 400 }
       );
@@ -32,21 +32,33 @@ export async function POST(request: NextRequest) {
 
     const now = timestamp ? new Date(timestamp) : new Date();
 
-    // Check if already marked within last 30 seconds
-    const recentAttendance = await db.attendance.findFirst({
+    // Calculate start and end of the day for the given timestamp
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Check if attendance already exists for this person today
+    const existingAttendance = await db.attendance.findFirst({
       where: {
         siteId,
         personnelId,
         timestamp: {
-          gte: new Date(now.getTime() - 30000), // 30 seconds ago
+          gte: startOfDay,
+          lte: endOfDay,
         },
+      },
+      orderBy: {
+        timestamp: 'asc', // Get the first (earliest) record of the day
       },
     });
 
-    if (recentAttendance) {
+    if (existingAttendance) {
+      // Person already has attendance for today, return existing record
       return NextResponse.json({
         success: true,
-        attendance: recentAttendance,
+        attendance: existingAttendance,
+        message: "Attendance already recorded for today",
       });
     }
 
@@ -55,7 +67,6 @@ export async function POST(request: NextRequest) {
       data: {
         siteId,
         personnelId,
-        cameraId,
         confidence: confidenceScore,
         timestamp: now,
       },

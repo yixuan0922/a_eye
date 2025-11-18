@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendBulkTelegramNotification, formatUnauthorizedAccessMessage } from "@/lib/telegram";
+import { isWithinRecentTime } from "@/lib/time-utils";
+import { shouldSendNotification } from "@/lib/notification-dedup";
 
 export async function POST(request: NextRequest) {
   try {
@@ -105,44 +107,54 @@ export async function POST(request: NextRequest) {
       `✅ Unauthorized access alert created: Track-${trackId} at ${cameraName}`
     );
 
-    // Send Telegram notification to all users who have linked their Telegram accounts
-    // Fetch list of linked users from Telegram bot
-    let adminUserIds: string[] = [];
+    // Send Telegram notification only if detection is within 1 minute of current SG time
+    // Check if the createdAt timestamp is within 60 seconds before/after current Singapore time
+    if (isWithinRecentTime(unauthorizedAccess.createdAt, 60)) {
+      // Check for duplicate notifications (same track + location within 10 seconds)
+      const personIdentifier = `Track-${trackId}`;
 
-    try {
-      const TELEGRAM_BOT_URL = process.env.TELEGRAM_BOT_URL || 'http://localhost:3001';
-      const usersResponse = await fetch(`${TELEGRAM_BOT_URL}/api/users`);
+      if (shouldSendNotification('unauthorized', personIdentifier, location, 10)) {
+        // Fetch list of linked users from Telegram bot
+        let adminUserIds: string[] = [];
 
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json();
-        // Get all user IDs who have linked their Telegram accounts
-        adminUserIds = usersData.users?.map((u: any) => u.userId) || [];
-        console.log(`📱 Found ${adminUserIds.length} users with linked Telegram accounts`);
+        try {
+          const TELEGRAM_BOT_URL = process.env.TELEGRAM_BOT_URL || 'http://localhost:3001';
+          const usersResponse = await fetch(`${TELEGRAM_BOT_URL}/api/users`);
+
+          if (usersResponse.ok) {
+            const usersData = await usersResponse.json();
+            // Get all user IDs who have linked their Telegram accounts
+            adminUserIds = usersData.users?.map((u: any) => u.userId) || [];
+            console.log(`📱 Found ${adminUserIds.length} users with linked Telegram accounts`);
+          }
+        } catch (error) {
+          console.error('Failed to fetch linked Telegram users:', error);
+        }
+
+        if (adminUserIds.length > 0) {
+          const message = formatUnauthorizedAccessMessage({
+            trackId: unauthorizedAccess.trackId,
+            location: unauthorizedAccess.location,
+            cameraName: unauthorizedAccess.cameraName,
+            durationSeconds: unauthorizedAccess.durationSeconds,
+            detectionTimestamp: unauthorizedAccess.detectionTimestamp,
+            severity: unauthorizedAccess.severity,
+          });
+
+          // Send notification without blocking the response
+          sendBulkTelegramNotification({
+            userIds: adminUserIds,
+            message,
+            type: 'unauthorized',
+            imageUrl: unauthorizedAccess.snapshotUrl || undefined
+          }).catch(error => {
+            console.error('Failed to send Telegram notification:', error);
+            // Don't fail the request if notification fails
+          });
+        }
       }
-    } catch (error) {
-      console.error('Failed to fetch linked Telegram users:', error);
-    }
-
-    if (adminUserIds.length > 0) {
-      const message = formatUnauthorizedAccessMessage({
-        trackId: unauthorizedAccess.trackId,
-        location: unauthorizedAccess.location,
-        cameraName: unauthorizedAccess.cameraName,
-        durationSeconds: unauthorizedAccess.durationSeconds,
-        detectionTimestamp: unauthorizedAccess.detectionTimestamp,
-        severity: unauthorizedAccess.severity,
-      });
-
-      // Send notification without blocking the response
-      sendBulkTelegramNotification({
-        userIds: adminUserIds,
-        message,
-        type: 'unauthorized',
-        imageUrl: unauthorizedAccess.snapshotUrl || undefined
-      }).catch(error => {
-        console.error('Failed to send Telegram notification:', error);
-        // Don't fail the request if notification fails
-      });
+    } else {
+      console.log(`⏭️  Skipping unauthorized access notification - detection timestamp outside 60-second window`);
     }
 
     return NextResponse.json(

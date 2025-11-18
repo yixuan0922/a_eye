@@ -21,9 +21,9 @@ model Site {
   cameras            Camera[]
   personnel          Personnel[]
   ppeViolations      PPEViolation[]
+  unauthorizedAccess UnauthorizedAccess[]
   users              User[]
   violations         Violation[]
-  unauthorizedAccess UnauthorizedAccess[]
 
   @@map("sites")
 }
@@ -69,7 +69,6 @@ model Camera {
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   streamUrl          String?
-  attendance         Attendance[]
   site               Site                 @relation(fields: [siteId], references: [id])
   ppeViolations      PPEViolation[]
   violations         Violation[]
@@ -101,8 +100,8 @@ model Personnel {
   attendance         Attendance[]         @relation("PersonnelAttendance")
   site               Site                 @relation(fields: [siteId], references: [id])
   ppeViolations      PPEViolation[]
-  violations         Violation[]
   unauthorizedAccess UnauthorizedAccess[]
+  violations         Violation[]
 
   @@map("personnel")
 }
@@ -123,7 +122,7 @@ model Violation {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   camera      Camera?    @relation(fields: [cameraId], references: [id])
-  personnel   Personnel? @relation(fields: [personnelId], references: [id], onDelete: SetNull)
+  personnel   Personnel? @relation(fields: [personnelId], references: [id])
   site        Site       @relation(fields: [siteId], references: [id])
 
   @@map("violations")
@@ -144,14 +143,14 @@ model Activity {
 model Attendance {
   id          String    @id @default(cuid())
   siteId      String
-  cameraId    String
   confidence  Float
   timestamp   DateTime  @default(now())
   personnelId String
-  camera      Camera    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
   personnel   Personnel @relation("PersonnelAttendance", fields: [personnelId], references: [id], onDelete: Cascade)
   site        Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
 
+  @@index([personnelId, timestamp])
+  @@index([siteId, timestamp])
   @@map("attendance")
 }
 
@@ -185,7 +184,7 @@ model PPEViolation {
   acknowledgedAt     DateTime?
   acknowledgedBy     String?
   camera             Camera?    @relation(fields: [cameraId], references: [id])
-  personnel          Personnel? @relation(fields: [personnelId], references: [id], onDelete: SetNull)
+  personnel          Personnel? @relation(fields: [personnelId], references: [id])
   site               Site       @relation(fields: [siteId], references: [id])
 
   @@index([siteId, status, detectionTimestamp])
@@ -197,38 +196,30 @@ model PPEViolation {
 }
 
 model UnauthorizedAccess {
-  id                      String     @id @default(cuid())
-  // Tracking Information
-  trackId                 Int
-  // Location Information
-  siteId                  String
-  site                    Site       @relation(fields: [siteId], references: [id])
-  cameraId                String?
-  camera                  Camera?    @relation(fields: [cameraId], references: [id])
-  cameraName              String
-  location                String
-  // Detection Information
-  detectionTimestamp      DateTime
-  durationSeconds         Float
-  totalFramesTracked      Int
-  faceDetectionAttempts   Int
-  // Evidence
-  snapshotUrl             String?
-  bbox                    Json? // [x1, y1, x2, y2]
-  // Status
-  status                  String     @default("active") // active, resolved, ignored
-  severity                String     @default("high") // high, medium, low
-  // Resolution
-  resolvedAt              DateTime?
-  resolvedBy              String?
-  resolutionNotes         String?
-  // Person Information (if later identified)
-  identifiedPersonName    String?
-  identifiedPersonnelId   String?
-  identifiedPersonnel     Personnel? @relation(fields: [identifiedPersonnelId], references: [id], onDelete: SetNull)
-  // Timestamps
-  createdAt               DateTime   @default(now())
-  updatedAt               DateTime   @updatedAt
+  id                    String     @id @default(cuid())
+  trackId               Int
+  siteId                String
+  cameraId              String?
+  cameraName            String
+  location              String
+  detectionTimestamp    DateTime
+  durationSeconds       Float
+  totalFramesTracked    Int
+  faceDetectionAttempts Int
+  snapshotUrl           String?
+  bbox                  Json?
+  status                String     @default("active")
+  severity              String     @default("high")
+  resolvedAt            DateTime?
+  resolvedBy            String?
+  resolutionNotes       String?
+  identifiedPersonName  String?
+  identifiedPersonnelId String?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  camera                Camera?    @relation(fields: [cameraId], references: [id])
+  identifiedPersonnel   Personnel? @relation(fields: [identifiedPersonnelId], references: [id])
+  site                  Site       @relation(fields: [siteId], references: [id])
 
   @@index([siteId])
   @@index([cameraId])
@@ -237,3 +228,4 @@ model UnauthorizedAccess {
   @@index([detectionTimestamp])
   @@map("unauthorized_access")
 }
+

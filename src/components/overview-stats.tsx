@@ -1,11 +1,13 @@
 "use client";
 
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { trpc } from "@/lib/trpc/client";
+import { generatePPEViolationReport } from "@/lib/pdf-generator";
 
 import { toast } from "sonner";
 import {
@@ -49,6 +51,7 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
     });
   const { data: incidents, isLoading: incidentsLoading } =
     trpc.getIncidentsBySite.useQuery(siteId);
+  const { data: site } = trpc.getSite.useQuery(siteId);
 
   const { mutate: generateQRCode, isPending: isGeneratingQR } =
     trpc.generateQRCode.useMutation({
@@ -65,6 +68,56 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
         toast.error("Failed to Generate QR Code");
       },
     });
+
+  const utils = trpc.useUtils();
+  const [isGeneratingReport, setIsGeneratingReport] = React.useState(false);
+
+  const handleGenerateReport = async () => {
+    if (!site) {
+      toast.error("Site information not available");
+      return;
+    }
+
+    setIsGeneratingReport(true);
+    toast.loading("Generating PPE Violation Report...", { id: "report-generation" });
+
+    try {
+      // Create dates that match the database timezone format
+      // Database stores Singapore time with Z marker, so we need to construct dates accordingly
+      const now = new Date();
+      const endDate = new Date(Date.UTC(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        now.getHours(),
+        now.getMinutes(),
+        now.getSeconds(),
+        now.getMilliseconds()
+      ));
+
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const startDate = new Date(Date.UTC(
+        thirtyDaysAgo.getFullYear(),
+        thirtyDaysAgo.getMonth(),
+        thirtyDaysAgo.getDate(),
+        0, 0, 0, 0
+      ));
+
+      const reportData = await utils.client.getPPEViolationReport.query({
+        siteId,
+        startDate,
+        endDate,
+      });
+
+      generatePPEViolationReport(reportData, site);
+      toast.success("PPE Violation Report Generated Successfully", { id: "report-generation" });
+    } catch (error: any) {
+      toast.error(`Failed to Generate Report: ${error.message}`, { id: "report-generation" });
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
 
   if (
     camerasLoading ||
@@ -318,14 +371,15 @@ export default function OverviewStats({ siteId }: OverviewStatsProps) {
               <span className="text-sm font-medium">Add Personnel</span>
             </Button>
 
-            <Button className="p-4 h-auto bg-warning-orange hover:bg-orange-600 text-white flex flex-col items-center">
-              <Bell className="text-2xl mb-2" />
-              <span className="text-sm font-medium">Send Alert</span>
-            </Button>
-
-            <Button className="p-4 h-auto bg-gray-600 hover:bg-gray-700 text-white flex flex-col items-center">
+            <Button
+              className="p-4 h-auto bg-gray-600 hover:bg-gray-700 text-white flex flex-col items-center"
+              onClick={handleGenerateReport}
+              disabled={isGeneratingReport}
+            >
               <Download className="text-2xl mb-2" />
-              <span className="text-sm font-medium">Export Report</span>
+              <span className="text-sm font-medium">
+                {isGeneratingReport ? "Generating..." : "Export Report"}
+              </span>
             </Button>
 
             <Button
