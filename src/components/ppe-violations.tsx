@@ -103,12 +103,18 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     },
     {
       refetchInterval: 3000, // Refresh every 3 seconds for live monitoring
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+      staleTime: 0,
     }
   );
 
   // Fetch PPE violations count
   const { data: ppeCount } = trpc.getPPEViolationsCount.useQuery(siteId, {
     refetchInterval: 3000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0,
   });
 
   // Fetch Unauthorized Access violations with pagination
@@ -120,12 +126,18 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     },
     {
       refetchInterval: 3000, // Refresh every 3 seconds for live monitoring
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+      staleTime: 0,
     }
   );
 
   // Fetch Unauthorized Access count
   const { data: unauthorizedCount } = trpc.getUnauthorizedAccessCount.useQuery(siteId, {
     refetchInterval: 3000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0,
   });
 
   // Fetch Restricted Zone violations with pagination
@@ -137,12 +149,18 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     },
     {
       refetchInterval: 3000, // Refresh every 3 seconds for live monitoring
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+      staleTime: 0,
     }
   );
 
   // Fetch Restricted Zone count
   const { data: restrictedZoneCount } = trpc.getRestrictedZoneViolationsCount.useQuery(siteId, {
     refetchInterval: 3000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0,
   });
 
   // Resolve PPE violation mutation
