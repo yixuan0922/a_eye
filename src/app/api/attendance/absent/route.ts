@@ -10,6 +10,10 @@ export async function GET(request: NextRequest) {
     const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
 
+    console.log('[ATTENDANCE DEBUG] Absent endpoint');
+    console.log('Server time:', targetDate.toISOString());
+    console.log('Query range:', startOfDay.toISOString(), 'to', endOfDay.toISOString());
+
     // Fetch all authorized personnel
     const authorized = await db.personnel.findMany({
       where: { isAuthorized: true },
@@ -35,8 +39,12 @@ export async function GET(request: NextRequest) {
       select: {
         personnelId: true,
         siteId: true,
+        timestamp: true,
       },
     });
+
+    console.log('Found attendance records:', todaysAttendance.length);
+    console.log('Authorized personnel count:', authorized.length);
 
     const presentIdSet = new Set(
       todaysAttendance
