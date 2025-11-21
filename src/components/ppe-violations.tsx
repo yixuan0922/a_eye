@@ -340,20 +340,27 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     e.stopPropagation();
     setAnnotationViolation(violation);
 
-    // Pre-populate with current model detection
-    const wearing = Array.isArray(violation.ppeWearing)
-      ? violation.ppeWearing
-      : typeof violation.ppeWearing === 'string'
-      ? JSON.parse(violation.ppeWearing)
-      : [];
-    const missing = Array.isArray(violation.ppeMissing)
-      ? violation.ppeMissing
-      : typeof violation.ppeMissing === 'string'
-      ? JSON.parse(violation.ppeMissing)
-      : [];
+    // If already annotated, pre-populate with annotation; otherwise use model detection
+    if (violation.isAnnotated && violation.annotatedWearing) {
+      // Use previous annotation
+      setSelectedWearing(violation.annotatedWearing || []);
+      setSelectedMissing(violation.annotatedMissing || []);
+    } else {
+      // Pre-populate with current model detection
+      const wearing = Array.isArray(violation.ppeWearing)
+        ? violation.ppeWearing
+        : typeof violation.ppeWearing === 'string'
+        ? JSON.parse(violation.ppeWearing)
+        : [];
+      const missing = Array.isArray(violation.ppeMissing)
+        ? violation.ppeMissing
+        : typeof violation.ppeMissing === 'string'
+        ? JSON.parse(violation.ppeMissing)
+        : [];
 
-    setSelectedWearing(wearing);
-    setSelectedMissing(missing);
+      setSelectedWearing(wearing);
+      setSelectedMissing(missing);
+    }
     setIsAnnotationModalOpen(true);
   };
 
@@ -1240,7 +1247,7 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
                 )}
 
                 {/* Annotation History - show right after PPE Status for PPE violations */}
-                {selectedViolation.isAnnotated && selectedViolation.ppeMissing && (
+                {selectedViolation.isAnnotated && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-700 mb-2">Annotation History</h3>
                     <div className="space-y-2">
