@@ -12,7 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AlertTriangle, Eye, CheckCircle, HardHat, ShieldAlert, X, Search, Calendar, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { AlertTriangle, Eye, CheckCircle, HardHat, ShieldAlert, X, Search, Calendar, ChevronLeft, ChevronRight, MapPin, Edit3 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc/client";
 import { convertS3UrlToHttps } from "@/lib/s3";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +29,15 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
   const { toast } = useToast();
   const [selectedViolation, setSelectedViolation] = useState<any>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // Annotation state
+  const [isAnnotationModalOpen, setIsAnnotationModalOpen] = useState(false);
+  const [annotationViolation, setAnnotationViolation] = useState<any>(null);
+  const [selectedWearing, setSelectedWearing] = useState<string[]>([]);
+  const [selectedMissing, setSelectedMissing] = useState<string[]>([]);
+
+  // PPE items available for annotation
+  const PPE_ITEMS = ['Hard_hat', 'Vest', 'Gloves', 'Mask', 'Safety_boots'];
 
   // Search and filter states for PPE
   const [searchName, setSearchName] = useState("");
@@ -217,6 +228,26 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     },
   });
 
+  // Annotate PPE violation mutation
+  const annotatePPEViolationMutation = trpc.annotatePPEViolation.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Annotation Saved",
+        description: "The violation has been annotated for model retraining.",
+      });
+      setIsAnnotationModalOpen(false);
+      setAnnotationViolation(null);
+      refetchPPE();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to save annotation: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   const isLoading = isPPELoading || isUnauthorizedLoading || isRestrictedZoneLoading;
 
   // Filter out low severity violations and apply search/date filters for PPE
@@ -303,6 +334,52 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
   const handleCloseModal = () => {
     setIsDetailModalOpen(false);
     setSelectedViolation(null);
+  };
+
+  const handleOpenAnnotation = (violation: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setAnnotationViolation(violation);
+
+    // Pre-populate with current model detection
+    const wearing = Array.isArray(violation.ppeWearing)
+      ? violation.ppeWearing
+      : typeof violation.ppeWearing === 'string'
+      ? JSON.parse(violation.ppeWearing)
+      : [];
+    const missing = Array.isArray(violation.ppeMissing)
+      ? violation.ppeMissing
+      : typeof violation.ppeMissing === 'string'
+      ? JSON.parse(violation.ppeMissing)
+      : [];
+
+    setSelectedWearing(wearing);
+    setSelectedMissing(missing);
+    setIsAnnotationModalOpen(true);
+  };
+
+  const handleWearingToggle = (item: string) => {
+    if (selectedWearing.includes(item)) {
+      setSelectedWearing(selectedWearing.filter(i => i !== item));
+      // If removing from wearing, add to missing
+      if (!selectedMissing.includes(item)) {
+        setSelectedMissing([...selectedMissing, item]);
+      }
+    } else {
+      setSelectedWearing([...selectedWearing, item]);
+      // If adding to wearing, remove from missing
+      setSelectedMissing(selectedMissing.filter(i => i !== item));
+    }
+  };
+
+  const handleSaveAnnotation = () => {
+    if (!annotationViolation) return;
+
+    annotatePPEViolationMutation.mutate({
+      id: annotationViolation.id,
+      annotatedBy: "System Admin",
+      annotatedWearing: selectedWearing,
+      annotatedMissing: selectedMissing,
+    });
   };
 
   const handleResolvePPEViolation = (violationId: string, e: React.MouseEvent) => {
@@ -536,6 +613,16 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
           </div>
 
           <div className="flex items-center space-x-2">
+            {/* Annotate button */}
+            <Button
+              size="sm"
+              variant="outline"
+              className={`${violation.isAnnotated ? 'border-blue-500 text-blue-600' : 'border-gray-300'}`}
+              onClick={(e) => handleOpenAnnotation(violation, e)}
+              title={violation.isAnnotated ? "Edit annotation" : "Annotate for retraining"}
+            >
+              <Edit3 className="w-4 h-4" />
+            </Button>
             {!violation.resolvedAt && violation.status === "active" && (
               <Button
                 size="sm"
@@ -1152,6 +1239,38 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
                   </div>
                 )}
 
+                {/* Annotation History - show right after PPE Status for PPE violations */}
+                {selectedViolation.isAnnotated && selectedViolation.ppeMissing && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Annotation History</h3>
+                    <div className="space-y-2">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-xs font-medium text-blue-800 mb-2">Corrected PPE Status</p>
+                        {selectedViolation.annotatedWearing && selectedViolation.annotatedWearing.length > 0 && (
+                          <p className="text-sm text-green-700 mb-1">
+                            <span className="font-medium">Actually Wearing:</span> {selectedViolation.annotatedWearing.join(', ')}
+                          </p>
+                        )}
+                        {selectedViolation.annotatedMissing && selectedViolation.annotatedMissing.length > 0 && (
+                          <p className="text-sm text-red-700 mb-1">
+                            <span className="font-medium">Actually Missing:</span> {selectedViolation.annotatedMissing.join(', ')}
+                          </p>
+                        )}
+                        <div className="mt-2 pt-2 border-t border-blue-200">
+                          <p className="text-xs text-blue-600">
+                            Annotated {selectedViolation.annotatedAt && (
+                              <>on {new Date(selectedViolation.annotatedAt).toLocaleString()}</>
+                            )}
+                            {selectedViolation.annotatedBy && (
+                              <> by {selectedViolation.annotatedBy}</>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Unauthorized Access Information */}
                 {selectedViolation.durationSeconds !== undefined && (
                   <div>
@@ -1280,6 +1399,152 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Annotation Modal */}
+      <Dialog open={isAnnotationModalOpen} onOpenChange={setIsAnnotationModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Edit3 className="w-5 h-5" />
+              <span>Annotate Detection for Model Retraining</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {annotationViolation && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Side - Snapshot Image */}
+              <div className="flex flex-col">
+                {annotationViolation.snapshotUrl ? (
+                  <div className="bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center" style={{ height: '400px' }}>
+                    <img
+                      src={convertS3UrlToHttps(annotationViolation.snapshotUrl) || ''}
+                      alt="Violation Snapshot"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="bg-gray-100 rounded-lg flex items-center justify-center" style={{ height: '400px' }}>
+                    <div className="text-center">
+                      <HardHat className="w-16 h-16 text-gray-400 mx-auto mb-2" />
+                      <p className="text-gray-500 text-sm">No snapshot available</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Model's original detection */}
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs font-medium text-gray-600 mb-2">Model Detection (Original)</p>
+                  <div className="space-y-1">
+                    <p className="text-sm">
+                      <span className="font-medium text-green-600">Wearing:</span>{' '}
+                      {(() => {
+                        const wearing = Array.isArray(annotationViolation.ppeWearing)
+                          ? annotationViolation.ppeWearing
+                          : JSON.parse(annotationViolation.ppeWearing || '[]');
+                        return wearing.length > 0 ? wearing.join(', ') : 'None';
+                      })()}
+                    </p>
+                    <p className="text-sm">
+                      <span className="font-medium text-red-600">Missing:</span>{' '}
+                      {(() => {
+                        const missing = Array.isArray(annotationViolation.ppeMissing)
+                          ? annotationViolation.ppeMissing
+                          : JSON.parse(annotationViolation.ppeMissing || '[]');
+                        return missing.length > 0 ? missing.join(', ') : 'None';
+                      })()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Side - Annotation Controls */}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Person: {annotationViolation.personName}</h3>
+                  <p className="text-xs text-gray-500">
+                    Correct the PPE detection below. Check items that are actually being worn.
+                  </p>
+                </div>
+
+                {/* PPE Items Checkboxes */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium text-gray-700">Select PPE items being worn:</h4>
+                  <div className="space-y-3">
+                    {PPE_ITEMS.map((item) => (
+                      <div key={item} className="flex items-center space-x-3">
+                        <Checkbox
+                          id={`ppe-${item}`}
+                          checked={selectedWearing.includes(item)}
+                          onCheckedChange={() => handleWearingToggle(item)}
+                        />
+                        <Label
+                          htmlFor={`ppe-${item}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {item.replace('_', ' ')}
+                        </Label>
+                        {selectedWearing.includes(item) ? (
+                          <Badge className="bg-green-100 text-green-800 text-xs">Wearing</Badge>
+                        ) : (
+                          <Badge className="bg-red-100 text-red-800 text-xs">Missing</Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <h4 className="text-sm font-medium text-blue-800 mb-2">Annotation Summary</h4>
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      <span className="font-medium text-green-700">Wearing:</span>{' '}
+                      {selectedWearing.length > 0 ? selectedWearing.join(', ') : 'None'}
+                    </p>
+                    <p>
+                      <span className="font-medium text-red-700">Missing:</span>{' '}
+                      {selectedMissing.length > 0 ? selectedMissing.join(', ') : 'None'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Already annotated indicator */}
+                {annotationViolation.isAnnotated && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-xs text-yellow-800">
+                      This violation was previously annotated
+                      {annotationViolation.annotatedAt && (
+                        <> on {new Date(annotationViolation.annotatedAt).toLocaleString()}</>
+                      )}
+                      {annotationViolation.annotatedBy && (
+                        <> by {annotationViolation.annotatedBy}</>
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex space-x-3 pt-4">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setIsAnnotationModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    onClick={handleSaveAnnotation}
+                    disabled={annotatePPEViolationMutation.isPending}
+                  >
+                    {annotatePPEViolationMutation.isPending ? 'Saving...' : 'Save Annotation'}
+                  </Button>
+                </div>
               </div>
             </div>
           )}

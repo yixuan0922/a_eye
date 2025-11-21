@@ -443,6 +443,35 @@ export class Storage {
     });
   }
 
+  async annotatePPEViolation(
+    id: string,
+    annotatedBy: string,
+    annotatedWearing: string[],
+    annotatedMissing: string[]
+  ): Promise<any> {
+    return await db.pPEViolation.update({
+      where: { id },
+      data: {
+        isAnnotated: true,
+        annotatedBy,
+        annotatedWearing,
+        annotatedMissing,
+        annotatedAt: new Date(),
+      },
+    });
+  }
+
+  async getAnnotatedPPEViolations(siteId: string, limit: number = 100): Promise<any[]> {
+    return await db.pPEViolation.findMany({
+      where: {
+        siteId,
+        isAnnotated: true,
+      },
+      orderBy: { annotatedAt: "desc" },
+      take: limit,
+    });
+  }
+
   async getPPEViolationsCount(siteId: string): Promise<number> {
     return await db.pPEViolation.count({
       where: { siteId },

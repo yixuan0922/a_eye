@@ -183,6 +183,14 @@ model PPEViolation {
   resolutionNotes    String?
   acknowledgedAt     DateTime?
   acknowledgedBy     String?
+
+  // Annotation fields for model retraining
+  isAnnotated        Boolean    @default(false)
+  annotatedWearing   String[]   @default([])
+  annotatedMissing   String[]   @default([])
+  annotatedAt        DateTime?
+  annotatedBy        String?
+
   camera             Camera?    @relation(fields: [cameraId], references: [id])
   personnel          Personnel? @relation(fields: [personnelId], references: [id])
   site               Site       @relation(fields: [siteId], references: [id])
@@ -192,6 +200,7 @@ model PPEViolation {
   @@index([personnelId, detectionTimestamp])
   @@index([cameraId, detectionTimestamp])
   @@index([currentState, status])
+  @@index([isAnnotated])
   @@map("ppe_violations")
 }
 

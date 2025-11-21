@@ -364,6 +364,38 @@ export const appRouter = router({
       );
     }),
 
+  annotatePPEViolation: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        annotatedBy: z.string(),
+        annotatedWearing: z.array(z.string()),
+        annotatedMissing: z.array(z.string()),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return await storage.annotatePPEViolation(
+        input.id,
+        input.annotatedBy,
+        input.annotatedWearing,
+        input.annotatedMissing
+      );
+    }),
+
+  getAnnotatedPPEViolations: publicProcedure
+    .input(
+      z.object({
+        siteId: z.string(),
+        limit: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      return await storage.getAnnotatedPPEViolations(
+        input.siteId,
+        input.limit
+      );
+    }),
+
   // Unauthorized Access
   getUnauthorizedAccessBySite: publicProcedure
     .input(
