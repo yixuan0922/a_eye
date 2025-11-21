@@ -342,6 +342,12 @@ export class Storage {
     });
   }
 
+  async deleteViolation(id: string): Promise<Violation> {
+    return await db.violation.delete({
+      where: { id },
+    });
+  }
+
   // PPE Violations
   async getPPEViolationsBySite(siteId: string, limit: number = 10, skip: number = 0): Promise<any[]> {
     return await db.pPEViolation.findMany({
@@ -426,6 +432,12 @@ export class Storage {
         resolvedAt: new Date(),
         resolutionNotes,
       },
+    });
+  }
+
+  async deletePPEViolation(id: string): Promise<any> {
+    return await db.pPEViolation.delete({
+      where: { id },
     });
   }
 
@@ -529,6 +541,12 @@ export class Storage {
         resolvedAt: new Date(),
         resolutionNotes,
       },
+    });
+  }
+
+  async deleteUnauthorizedAccess(id: string): Promise<any> {
+    return await db.unauthorizedAccess.delete({
+      where: { id },
     });
   }
 

@@ -174,55 +174,55 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     staleTime: 0,
   });
 
-  // Resolve PPE violation mutation
-  const resolvePPEViolationMutation = trpc.resolvePPEViolation.useMutation({
+  // Delete PPE violation mutation
+  const deletePPEViolationMutation = trpc.deletePPEViolation.useMutation({
     onSuccess: () => {
       toast({
-        title: "Violation Resolved",
-        description: "The violation has been marked as resolved.",
+        title: "Violation Deleted",
+        description: "The violation has been removed.",
       });
       refetchPPE();
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: `Failed to resolve violation: ${error.message}`,
+        description: `Failed to delete violation: ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
-  // Resolve unauthorized access mutation
-  const resolveUnauthorizedAccessMutation = trpc.resolveUnauthorizedAccess.useMutation({
+  // Delete unauthorized access mutation
+  const deleteUnauthorizedAccessMutation = trpc.deleteUnauthorizedAccess.useMutation({
     onSuccess: () => {
       toast({
-        title: "Violation Resolved",
-        description: "The violation has been marked as resolved.",
+        title: "Violation Deleted",
+        description: "The violation has been removed.",
       });
       refetchUnauthorized();
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: `Failed to resolve violation: ${error.message}`,
+        description: `Failed to delete violation: ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
-  // Resolve violation mutation (for restricted zone)
-  const resolveViolationMutation = trpc.resolveViolation.useMutation({
+  // Delete violation mutation (for restricted zone)
+  const deleteViolationMutation = trpc.deleteViolation.useMutation({
     onSuccess: () => {
       toast({
-        title: "Violation Resolved",
-        description: "The violation has been marked as resolved.",
+        title: "Violation Deleted",
+        description: "The violation has been removed.",
       });
       refetchRestrictedZone();
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: `Failed to resolve violation: ${error.message}`,
+        description: `Failed to delete violation: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -389,30 +389,19 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
     });
   };
 
-  const handleResolvePPEViolation = (violationId: string, e: React.MouseEvent) => {
+  const handleDeletePPEViolation = (violationId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
-    resolvePPEViolationMutation.mutate({
-      id: violationId,
-      resolvedBy: "System Admin", // You can replace this with actual user info
-      resolutionNotes: "Resolved via dashboard",
-    });
+    deletePPEViolationMutation.mutate(violationId);
   };
 
-  const handleResolveUnauthorizedAccess = (violationId: string, e: React.MouseEvent) => {
+  const handleDeleteUnauthorizedAccess = (violationId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
-    resolveUnauthorizedAccessMutation.mutate({
-      id: violationId,
-      resolvedBy: "System Admin", // You can replace this with actual user info
-      resolutionNotes: "Resolved via dashboard",
-    });
+    deleteUnauthorizedAccessMutation.mutate(violationId);
   };
 
-  const handleResolveViolation = (violationId: string, e: React.MouseEvent) => {
+  const handleDeleteViolation = (violationId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
-    resolveViolationMutation.mutate({
-      id: violationId,
-      resolvedBy: "System Admin", // You can replace this with actual user info
-    });
+    deleteViolationMutation.mutate(violationId);
   };
 
   if (isLoading) {
@@ -630,16 +619,14 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
             >
               <Edit3 className="w-4 h-4" />
             </Button>
-            {!violation.resolvedAt && violation.status === "active" && (
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={(e) => handleResolvePPEViolation(violation.id, e)}
-                disabled={resolvePPEViolationMutation.isPending}
-              >
-                <CheckCircle className="w-4 h-4" />
-              </Button>
-            )}
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={(e) => handleDeletePPEViolation(violation.id, e)}
+              disabled={deletePPEViolationMutation.isPending}
+            >
+              <CheckCircle className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </Card>
@@ -695,16 +682,14 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
           </div>
 
           <div className="flex items-center space-x-2">
-            {!violation.resolvedAt && violation.status === "active" && (
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={(e) => handleResolveUnauthorizedAccess(violation.id, e)}
-                disabled={resolveUnauthorizedAccessMutation.isPending}
-              >
-                <CheckCircle className="w-4 h-4" />
-              </Button>
-            )}
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={(e) => handleDeleteUnauthorizedAccess(violation.id, e)}
+              disabled={deleteUnauthorizedAccessMutation.isPending}
+            >
+              <CheckCircle className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </Card>
@@ -824,16 +809,14 @@ export default function PPEViolations({ siteId }: PPEViolationsProps) {
           </div>
 
           <div className="flex items-center space-x-2">
-            {!violation.resolvedAt && violation.status === "active" && (
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={(e) => handleResolveViolation(violation.id, e)}
-                disabled={resolveViolationMutation.isPending}
-              >
-                <CheckCircle className="w-4 h-4" />
-              </Button>
-            )}
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={(e) => handleDeleteViolation(violation.id, e)}
+              disabled={deleteViolationMutation.isPending}
+            >
+              <CheckCircle className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </Card>

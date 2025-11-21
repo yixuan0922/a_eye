@@ -260,6 +260,12 @@ export const appRouter = router({
       return await storage.resolveViolation(input.id, input.resolvedBy);
     }),
 
+  deleteViolation: publicProcedure
+    .input(z.string())
+    .mutation(async ({ input }) => {
+      return await storage.deleteViolation(input);
+    }),
+
   // PPE Violations
   getPPEViolationsBySite: publicProcedure
     .input(
@@ -348,6 +354,12 @@ export const appRouter = router({
         input.resolvedBy,
         input.resolutionNotes
       );
+    }),
+
+  deletePPEViolation: publicProcedure
+    .input(z.string())
+    .mutation(async ({ input }) => {
+      return await storage.deletePPEViolation(input);
     }),
 
   acknowledgePPEViolation: publicProcedure
@@ -449,6 +461,12 @@ export const appRouter = router({
         input.resolvedBy,
         input.resolutionNotes
       );
+    }),
+
+  deleteUnauthorizedAccess: publicProcedure
+    .input(z.string())
+    .mutation(async ({ input }) => {
+      return await storage.deleteUnauthorizedAccess(input);
     }),
 
   // Restricted Zone Violations
