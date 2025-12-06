@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import {
   Shield,
@@ -16,6 +17,8 @@ import {
   Camera,
   FileText,
   Calendar,
+  Video,
+  VideoOff,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import OverviewStats from "@/components/overview-stats";
@@ -39,6 +42,10 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const siteSlug = params?.siteSlug as string;
+
+  // Camera stream toggle state - must be before any early returns
+  const [streamsEnabled, setStreamsEnabled] = useState(true);
+  const [togglingStreams, setTogglingStreams] = useState(false);
 
   // Get site data
   const { data: siteData, isLoading: siteLoading } =
@@ -130,6 +137,39 @@ export default function Dashboard() {
     activeCameras: cameras?.filter((c) => c.status === "online").length || 0,
   };
 
+  // Toggle all camera streams
+  const toggleAllStreams = async (enabled: boolean) => {
+    setTogglingStreams(true);
+    try {
+      const response = await fetch('/api/camera-streams/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: enabled }),
+      });
+
+      if (response.ok) {
+        setStreamsEnabled(enabled);
+        toast({
+          title: enabled ? "Streams Enabled" : "Streams Disabled",
+          description: enabled
+            ? "All camera streams are now active"
+            : "Camera streams disabled. Analytics continue running.",
+        });
+      } else {
+        throw new Error('Failed to toggle streams');
+      }
+    } catch (error) {
+      console.error('Error toggling streams:', error);
+      toast({
+        title: "Error",
+        description: "Failed to toggle camera streams",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingStreams(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -176,6 +216,25 @@ export default function Dashboard() {
             <TabsTrigger value="cameras" className="flex items-center gap-2">
               <Camera className="w-4 h-4" />
               Cameras
+              <button
+                className={`flex items-center ml-1 p-0.5 rounded hover:bg-gray-200 transition-colors ${togglingStreams ? 'opacity-50' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!togglingStreams) {
+                    toggleAllStreams(!streamsEnabled);
+                  }
+                }}
+                title={streamsEnabled ? "Click to disable all camera streams" : "Click to enable all camera streams"}
+                disabled={togglingStreams}
+              >
+                {togglingStreams ? (
+                  <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                ) : streamsEnabled ? (
+                  <Video className="w-3.5 h-3.5 text-green-500" />
+                ) : (
+                  <VideoOff className="w-3.5 h-3.5 text-gray-400" />
+                )}
+              </button>
             </TabsTrigger>
             <TabsTrigger value="personnel" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
