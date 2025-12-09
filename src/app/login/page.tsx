@@ -15,7 +15,7 @@ export default function Login() {
   const { toast } = useToast();
   const [siteCode, setSiteCode] = useState("changi-site-01");
   const [email, setEmail] = useState("admin@changi01");
-  const [password, setPassword] = useState("admin123");
+  const [password, setPassword] = useState("");
 
   const loginMutation = trpc.login.useMutation();
 
