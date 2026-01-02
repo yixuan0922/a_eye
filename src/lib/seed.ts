@@ -7,14 +7,18 @@ export async function seed() {
     // Clear all existing data first (respecting foreign key constraints)
     console.log("🧹 Clearing existing data...");
     await db.activity.deleteMany({});
+    await db.attendance.deleteMany({});
+    await db.pPEViolation.deleteMany({});
+    await db.unauthorizedAccess.deleteMany({});
     await db.violation.deleteMany({});
     await db.personnel.deleteMany({});
     await db.camera.deleteMany({});
+    await db.userSite.deleteMany({});
     await db.user.deleteMany({});
     await db.site.deleteMany({});
     console.log("✅ Existing data cleared");
 
-    // Create sample site (based on SmartSiteSentry)
+    // Create multiple sites
     const changiSite = await db.site.create({
       data: {
         name: "Changi Construction Site 01",
@@ -26,23 +30,79 @@ export async function seed() {
       },
     });
 
-    console.log("✅ Created site:", changiSite.name);
-
-    // Create admin user for the site
-    const adminUser = await db.user.create({
+    const changiSite02 = await db.site.create({
       data: {
-        email: "admin@changi01",
-        name: "Site Administrator",
-        role: "admin",
-        siteId: changiSite.id,
+        name: "Changi Construction Site 02",
+        qrCode: "",
+        code: "changi-site-02",
+        location: "Changi Business Park, Singapore",
+        description: "Secondary construction site for the Changi project",
         isActive: true,
       },
     });
 
-    console.log("✅ Created admin user:", adminUser.email);
+    const marinaBaySite = await db.site.create({
+      data: {
+        name: "Marina Bay Development",
+        qrCode: "",
+        code: "marina-bay-01",
+        location: "Marina Bay, Singapore",
+        description: "Commercial development project at Marina Bay",
+        isActive: true,
+      },
+    });
 
-    // Create sample cameras (matching SmartSiteSentry structure)
+    console.log("✅ Created 3 sites");
+
+    // Create users with multi-site access
+    const adminUser = await db.user.create({
+      data: {
+        email: "admin@changi01",
+        name: "Site Administrator",
+        password: "$2a$10$YourHashedPasswordHere",
+        isActive: true,
+        sites: {
+          create: [
+            { siteId: changiSite.id, role: "admin" },
+            { siteId: changiSite02.id, role: "admin" },
+          ],
+        },
+      },
+    });
+
+    const supervisorUser = await db.user.create({
+      data: {
+        email: "supervisor@sites",
+        name: "Multi-Site Supervisor",
+        password: "$2a$10$YourHashedPasswordHere",
+        isActive: true,
+        sites: {
+          create: [
+            { siteId: changiSite.id, role: "supervisor" },
+            { siteId: changiSite02.id, role: "supervisor" },
+            { siteId: marinaBaySite.id, role: "supervisor" },
+          ],
+        },
+      },
+    });
+
+    const siteSpecificUser = await db.user.create({
+      data: {
+        email: "marina@admin",
+        name: "Marina Bay Admin",
+        password: "$2a$10$YourHashedPasswordHere",
+        isActive: true,
+        sites: {
+          create: [{ siteId: marinaBaySite.id, role: "admin" }],
+        },
+      },
+    });
+
+    console.log("✅ Created 3 users with multi-site access");
+
+    // Create sample cameras for all sites
     const cameraData = [
+      // Changi Site 01 cameras
       {
         siteId: changiSite.id,
         name: "Camera 1 - Main Entry",
@@ -70,6 +130,36 @@ export async function seed() {
         location: "Crane Operation Area",
         status: "alert",
         ipAddress: "192.168.1.104",
+      },
+      // Changi Site 02 cameras
+      {
+        siteId: changiSite02.id,
+        name: "Camera 1 - East Entrance",
+        location: "East Gate",
+        status: "online",
+        ipAddress: "192.168.2.101",
+      },
+      {
+        siteId: changiSite02.id,
+        name: "Camera 2 - Construction Zone B",
+        location: "Zone B - Steel Framework",
+        status: "online",
+        ipAddress: "192.168.2.102",
+      },
+      // Marina Bay cameras
+      {
+        siteId: marinaBaySite.id,
+        name: "Camera 1 - Lobby",
+        location: "Main Lobby",
+        status: "online",
+        ipAddress: "192.168.3.101",
+      },
+      {
+        siteId: marinaBaySite.id,
+        name: "Camera 2 - Construction Area",
+        location: "Ground Floor Construction",
+        status: "online",
+        ipAddress: "192.168.3.102",
       },
     ];
 

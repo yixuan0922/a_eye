@@ -677,29 +677,150 @@ export class Storage {
 
   // Authentication
   async authenticateUser(
-    siteCode: string,
     email: string,
     password: string
-  ): Promise<{ site: any; user: any } | null> {
-    // Simple authentication for now - find site by code
-    const site = await db.site.findUnique({
-      where: { code: siteCode },
+  ): Promise<{ user: any; sites: any[] } | null> {
+    // Find user by email with their site assignments
+    const user = await db.user.findUnique({
+      where: { email },
       include: {
-        users: true,
+        sites: {
+          include: {
+            site: {
+              include: {
+                cameras: true,
+                personnel: true,
+                violations: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    if (!site) {
+    if (!user) {
       return null;
     }
 
-    // Find user by email
-    const user = site.users.find((u: any) => u.email === email);
-    if (!user || password !== "admin123") {
+    // Simple password check (in production, use bcrypt.compare)
+    if (password !== "admin123") {
       return null;
     }
 
-    return { site, user };
+    // Return user with their accessible sites
+    const sites = user.sites.map((us) => ({
+      ...us.site,
+      userRole: us.role,
+      userSiteId: us.id,
+    }));
+
+    return { user, sites };
+  }
+
+  // Get user by ID with all their sites
+  async getUserWithSites(userId: string) {
+    return await db.user.findUnique({
+      where: { id: userId },
+      include: {
+        sites: {
+          include: {
+            site: true,
+          },
+        },
+      },
+    });
+  }
+
+  // Get all users with their site assignments (for admin)
+  async getAllUsersWithSites() {
+    return await db.user.findMany({
+      include: {
+        sites: {
+          include: {
+            site: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  }
+
+  // Assign user to a site
+  async assignUserToSite(userId: string, siteId: string, role = "admin") {
+    return await db.userSite.create({
+      data: {
+        userId,
+        siteId,
+        role,
+      },
+    });
+  }
+
+  // Remove user from a site
+  async removeUserFromSite(userId: string, siteId: string) {
+    return await db.userSite.deleteMany({
+      where: {
+        userId,
+        siteId,
+      },
+    });
+  }
+
+  // Get user's sites
+  async getUserSites(userId: string) {
+    const userSites = await db.userSite.findMany({
+      where: { userId },
+      include: {
+        site: true,
+      },
+    });
+
+    return userSites.map((us) => ({
+      ...us.site,
+      userRole: us.role,
+      userSiteId: us.id,
+    }));
+  }
+
+  // Create a new user
+  async createUser(data: {
+    email: string;
+    name: string;
+    password?: string;
+    siteIds?: string[];
+  }) {
+    const user = await db.user.create({
+      data: {
+        email: data.email,
+        name: data.name,
+        password: data.password || "$2a$10$YourHashedPasswordHere",
+        sites: data.siteIds
+          ? {
+              create: data.siteIds.map((siteId) => ({
+                siteId,
+                role: "admin",
+              })),
+            }
+          : undefined,
+      },
+      include: {
+        sites: {
+          include: {
+            site: true,
+          },
+        },
+      },
+    });
+
+    return user;
   }
 }
 

@@ -22,25 +22,40 @@ model Site {
   personnel          Personnel[]
   ppeViolations      PPEViolation[]
   unauthorizedAccess UnauthorizedAccess[]
-  users              User[]
+  users              UserSite[]
   violations         Violation[]
 
   @@map("sites")
 }
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
+  id           String         @id @default(cuid())
+  email        String         @unique
+  password     String         @default("$2a$10$YourHashedPasswordHere") // Will be properly hashed
   name         String?
-  role         String        @default("admin")
-  siteId       String
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  site         Site          @relation(fields: [siteId], references: [id])
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  sites        UserSite[]
   telegramLink TelegramLink?
 
   @@map("users")
+}
+
+model UserSite {
+  id        String   @id @default(cuid())
+  userId    String
+  siteId    String
+  role      String   @default("admin") // Role specific to this site
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, siteId])
+  @@index([userId])
+  @@index([siteId])
+  @@map("user_sites")
 }
 
 model TelegramLink {

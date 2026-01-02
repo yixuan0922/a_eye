@@ -11,6 +11,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "tsx src/lib/seed.ts",
+    "db:seed-additional": "tsx src/lib/seed-additional-sites.ts",
     "db:generate": "prisma generate"
   },
   "dependencies": {

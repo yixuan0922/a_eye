@@ -39,6 +39,12 @@ export const appRouter = router({
       return await storage.createSite(input);
     }),
 
+  getAllSites: publicProcedure.query(async () => {
+    return await db.site.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+  }),
+
   // Personnel
   getPersonnelBySite: publicProcedure
     .input(z.string())
@@ -562,22 +568,71 @@ export const appRouter = router({
   login: publicProcedure
     .input(
       z.object({
-        siteCode: z.string(),
         email: z.string(),
         password: z.string(),
       })
     )
     .mutation(async ({ input }) => {
       const result = await storage.authenticateUser(
-        input.siteCode,
         input.email,
         input.password
       );
       if (!result) {
-        throw new Error("Invalid credentials or site not found");
+        throw new Error("Invalid credentials");
       }
 
       return result;
+    }),
+
+  // User management
+  getUserSites: publicProcedure
+    .input(z.string())
+    .query(async ({ input: userId }) => {
+      return await storage.getUserSites(userId);
+    }),
+
+  getAllUsersWithSites: publicProcedure.query(async () => {
+    return await storage.getAllUsersWithSites();
+  }),
+
+  assignUserToSite: publicProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        siteId: z.string(),
+        role: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return await storage.assignUserToSite(
+        input.userId,
+        input.siteId,
+        input.role
+      );
+    }),
+
+  removeUserFromSite: publicProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        siteId: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return await storage.removeUserFromSite(input.userId, input.siteId);
+    }),
+
+  createUser: publicProcedure
+    .input(
+      z.object({
+        email: z.string(),
+        name: z.string(),
+        password: z.string().optional(),
+        siteIds: z.array(z.string()).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return await storage.createUser(input);
     }),
 
   // Camera Feed

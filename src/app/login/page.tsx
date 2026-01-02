@@ -13,7 +13,6 @@ import { trpc } from "@/lib/trpc/client";
 export default function Login() {
   const router = useRouter();
   const { toast } = useToast();
-  const [siteCode, setSiteCode] = useState("changi-site-01");
   const [email, setEmail] = useState("admin@changi01");
   const [password, setPassword] = useState("");
 
@@ -22,24 +21,24 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const data = await loginMutation.mutateAsync({ siteCode, email, password });
+      const data = await loginMutation.mutateAsync({ email, password });
 
-      // Store user session in localStorage
+      // Store user and available sites in localStorage
       localStorage.setItem('currentUser', JSON.stringify({
         id: data.user.id,
         email: data.user.email,
         name: data.user.name,
-        siteId: data.site.id,
-        siteCode: data.site.code,
       }));
+
+      localStorage.setItem('availableSites', JSON.stringify(data.sites));
 
       toast({
         title: "Login Successful",
-        description: `Welcome to ${data.site.name}`,
+        description: `Welcome ${data.user.name || data.user.email}`,
       });
 
-      // Use replace to avoid needing back navigation and ensure single navigation
-      router.replace(`/${data.site.code}`);
+      // Redirect to site selection page
+      router.replace("/select-site");
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -69,24 +68,13 @@ export default function Login() {
         <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="siteCode">Site Code</Label>
-              <Input
-                id="siteCode"
-                type="text"
-                value={siteCode}
-                onChange={(e) => setSiteCode(e.target.value)}
-                placeholder="Enter site code"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Admin Email</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter admin email"
+                placeholder="Enter your email"
                 required
               />
             </div>
@@ -109,20 +97,22 @@ export default function Login() {
               {loginMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Accessing Dashboard...
+                  Signing In...
                 </>
               ) : (
-                "Access Dashboard"
+                "Sign In"
               )}
             </Button>
           </form>
 
           <div className="mt-6 p-4 bg-muted/50 rounded-lg">
             <p className="text-sm text-muted-foreground mb-2">
-              Sample site: <span className="font-medium">changi-site-01</span>
+              Demo credentials
             </p>
             <p className="text-xs text-muted-foreground">
-              For demonstration purposes, use the pre-filled credentials above.
+              Email: <span className="font-medium">admin@changi01</span>
+              <br />
+              Password: <span className="font-medium">admin123</span>
             </p>
           </div>
         </CardContent>

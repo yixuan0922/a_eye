@@ -26,6 +26,7 @@ import PersonnelManagement from "@/components/personnel-management";
 import PPEViolations from "@/components/ppe-violations";
 import Reports from "@/components/reports";
 import AttendanceDashboard from "@/components/AttendanceDashboard";
+import { SiteSwitcher } from "@/components/SiteSwitcher";
 
 type Tab =
   | "overview"
@@ -82,17 +83,6 @@ export default function Dashboard() {
       refetchInterval: 5000, // Refresh every 5 seconds for live monitoring
     }
   );
-
-  const handleLogout = () => {
-    // Clear user session from localStorage
-    localStorage.removeItem('currentUser');
-
-    toast({
-      title: "Logged out",
-      description: "You have been logged out successfully",
-    });
-    router.push("/login");
-  };
 
   if (siteLoading) {
     return (
@@ -187,6 +177,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center space-x-4">
+            <SiteSwitcher />
             <Badge
               variant="outline"
               className="bg-authorized-green/10 text-authorized-green border-authorized-green"
@@ -194,10 +185,6 @@ export default function Dashboard() {
               <Activity className="w-3 h-3 mr-1" />
               ONLINE
             </Badge>
-            <Button onClick={handleLogout} size="sm" className="bg-black text-white hover:bg-gray-800">
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
           </div>
         </div>
       </header>
